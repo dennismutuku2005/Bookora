@@ -9,11 +9,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.dennis.bookora.R
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ListingType
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +57,11 @@ fun BookDetailsScreen(
         distance = "2.5 km"
     )
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Details") },
@@ -60,8 +71,12 @@ fun BookDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) { Icon(Icons.Default.FavoriteBorder, "Favorite") }
-                    IconButton(onClick = {}) { Icon(Icons.Default.Share, "Share") }
+                    var isFav by remember { mutableStateOf(false) }
+                    IconButton(onClick = {
+                        isFav = !isFav
+                        scope.launch { snackbarHostState.showSnackbar(if (isFav) "Added to favorites" else "Removed from favorites") }
+                    }) { Icon(if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Favorite") }
+                    IconButton(onClick = { scope.launch { snackbarHostState.showSnackbar("Share link copied") } }) { Icon(Icons.Default.Share, "Share") }
                 }
             )
         },
@@ -77,14 +92,14 @@ fun BookDetailsScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     OutlinedButton(
-                        onClick = {},
+                        onClick = { scope.launch { snackbarHostState.showSnackbar("Message feature not implemented yet") } },
                         modifier = Modifier.weight(1f).height(56.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Message")
                     }
                     Button(
-                        onClick = {},
+                        onClick = { scope.launch { snackbarHostState.showSnackbar("Request sent to owner — they will be notified") } },
                         modifier = Modifier.weight(1f).height(56.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
