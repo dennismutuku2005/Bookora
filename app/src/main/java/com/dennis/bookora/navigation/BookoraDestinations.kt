@@ -1,7 +1,6 @@
 package com.dennis.bookora.navigation
 
 object BookoraDestinations {
-    const val Splash = "splash"
     const val Welcome = "welcome"
     const val Login = "login"
     const val Register = "register"
