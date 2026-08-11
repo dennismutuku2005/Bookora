@@ -9,9 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -34,11 +37,21 @@ fun LoginScreen(
     val email = remember { mutableStateOf("") }
     val password = remember { mutableStateOf("") }
     val passwordVisible = remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
+        Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { inner ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -126,7 +139,26 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(40.dp))
             
             Button(
-                onClick = onLoginSuccess,
+                onClick = {
+                    scope.launch {
+                        try {
+                            val ok = FirebaseAuthManager.login(email.value, password.value)
+                            if (ok) {
+                                // try to fetch user profile (optional)
+                                val uid = FirebaseAuthManager.currentUser()?.uid
+                                if (uid != null) {
+                                    try {
+                                        val profile = FirebaseAuthManager.getUserProfile(uid)
+                                        // optionally do something with profile (not wired into UI yet)
+                                    } catch (_: Exception) {}
+                                }
+                                onLoginSuccess()
+                            } else snackbarHostState.showSnackbar("Login failed")
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar(e.message ?: "Login error")
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -153,6 +185,7 @@ fun LoginScreen(
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                 )
             }
+        }
         }
     }
 }
