@@ -1,24 +1,16 @@
 package com.dennis.bookora.navigation
 
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.dennis.bookora.ui.screens.ForgotPasswordScreen
-import com.dennis.bookora.ui.screens.LoginScreen
-import com.dennis.bookora.ui.screens.MainScreen
-import com.dennis.bookora.ui.screens.PrivacyPolicyScreen
-import com.dennis.bookora.ui.screens.RegisterScreen
-import com.dennis.bookora.ui.screens.SplashScreen
-import com.dennis.bookora.ui.screens.TermsScreen
-import com.dennis.bookora.ui.screens.WelcomeScreen
+import androidx.navigation.navArgument
+import com.dennis.bookora.ui.screens.*
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -84,11 +76,27 @@ fun BookoraNavGraph(
         }
 
         composable(BookoraDestinations.Main) {
-            MainScreen(onLogout = {
-                navController.navigate(BookoraDestinations.Welcome) {
-                    popUpTo(BookoraDestinations.Main) { inclusive = true }
+            MainScreen(
+                onLogout = {
+                    navController.navigate(BookoraDestinations.Welcome) {
+                        popUpTo(BookoraDestinations.Main) { inclusive = true }
+                    }
+                },
+                onBookClick = { bookId ->
+                    navController.navigate(BookoraDestinations.bookDetails(bookId))
                 }
-            })
+            )
+        }
+
+        composable(
+            route = BookoraDestinations.BookDetailsPattern,
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            BookDetailsScreen(
+                bookId = bookId,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
