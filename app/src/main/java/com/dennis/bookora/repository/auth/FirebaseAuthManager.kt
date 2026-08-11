@@ -4,6 +4,7 @@ import com.dennis.bookora.models.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
@@ -33,7 +34,8 @@ object FirebaseAuthManager {
             "rating" to 0.0,
             "booksPosted" to 0,
             "booksShared" to 0,
-            "favoritesCount" to 0
+            "favoritesCount" to 0,
+            "bio" to ""
         )
         firestore.collection("users").document(uid).set(userDoc).await()
         return result.user != null
@@ -66,7 +68,8 @@ object FirebaseAuthManager {
                 "rating" to 0.0,
                 "booksPosted" to 0,
                 "booksShared" to 0,
-                "favoritesCount" to 0
+                "favoritesCount" to 0,
+                "bio" to ""
             )
             firestore.collection("users").document(uid).set(userDoc).await()
         }
@@ -94,7 +97,20 @@ object FirebaseAuthManager {
             rating = (data["rating"] as? Number)?.toDouble() ?: 0.0,
             booksPosted = (data["booksPosted"] as? Number)?.toInt() ?: 0,
             booksShared = (data["booksShared"] as? Number)?.toInt() ?: 0,
-            favoritesCount = (data["favoritesCount"] as? Number)?.toInt() ?: 0
+            favoritesCount = (data["favoritesCount"] as? Number)?.toInt() ?: 0,
+            bio = data["bio"] as? String ?: ""
         )
+    }
+
+    suspend fun updateUserProfile(uid: String, updates: Map<String, Any>) {
+        firestore.collection("users").document(uid).set(updates, SetOptions.merge()).await()
+        // Update firebase auth display name if name changed
+        val user = auth.currentUser
+        val first = updates["firstName"] as? String
+        val last = updates["lastName"] as? String
+        if (!first.isNullOrBlank() || !last.isNullOrBlank()) {
+            val display = listOfNotNull(first, last).joinToString(" ")
+            user?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(display).build())?.await()
+        }
     }
 }
