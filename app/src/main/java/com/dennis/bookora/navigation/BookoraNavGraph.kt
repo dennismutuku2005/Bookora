@@ -20,17 +20,9 @@ fun BookoraNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = BookoraDestinations.Splash,
+        startDestination = BookoraDestinations.Welcome,
         modifier = modifier
     ) {
-        composable(BookoraDestinations.Splash) {
-            SplashScreen(onContinue = {
-                navController.navigate(BookoraDestinations.Welcome) {
-                    popUpTo(BookoraDestinations.Splash) { inclusive = true }
-                }
-            })
-        }
-
         composable(BookoraDestinations.Welcome) {
             WelcomeScreen(
                 onLogin = { navController.navigate(BookoraDestinations.Login) },
@@ -84,6 +76,12 @@ fun BookoraNavGraph(
                 },
                 onBookClick = { bookId ->
                     navController.navigate(BookoraDestinations.bookDetails(bookId))
+                },
+                onPrivacyClick = {
+                    navController.navigate(BookoraDestinations.Privacy)
+                },
+                onTermsClick = {
+                    navController.navigate(BookoraDestinations.Terms)
                 }
             )
         }
