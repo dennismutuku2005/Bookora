@@ -19,14 +19,14 @@ import com.dennis.bookora.ui.components.VerticalBookCard
 @Composable
 fun HomeScreen(onBookClick: (String) -> Unit) {
     val books = listOf(
-        BookItem("1", "Atomic Habits", "James Clear", "Giveaway", "dennis_m", "2h ago", Color(0xFFF0F4FF)),
-        BookItem("2", "The Alchemist", "Paulo Coelho", "Exchange", "sarah_k", "5h ago", Color(0xFFFFF7F0)),
-        BookItem("3", "Deep Work", "Cal Newport", "Exchange", "mike_r", "1d ago", Color(0xFFF0FFF4)),
-        BookItem("4", "Psychology of Money", "Morgan Housel", "Giveaway", "anna_l", "3d ago", Color(0xFFFFF0F0))
+        BookItem("1", "Atomic Habits", "James Clear", "Science", "dennis_m", "2h ago", 128, Color(0xFFF0F4FF)),
+        BookItem("2", "The Alchemist", "Paulo Coelho", "Philosophy", "sarah_k", "5h ago", 94, Color(0xFFFFF7F0)),
+        BookItem("3", "Deep Work", "Cal Newport", "Coding", "mike_r", "1d ago", 76, Color(0xFFF0FFF4)),
+        BookItem("4", "Principles", "Ray Dalio", "Maths", "anna_l", "3d ago", 54, Color(0xFFFFF0F0))
     )
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Trending Now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Featured Books", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(books) { book ->
