@@ -154,11 +154,39 @@ fun CreateListingScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        var condition by remember { mutableStateOf("Like New") }
+        val conditions = listOf("Like New", "Good", "Fair", "Used")
+
+        Text(
+            text = "Condition",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            conditions.forEach { option ->
+                FilterChip(
+                    selected = condition == option,
+                    onClick = { condition = option },
+                    label = { Text(option) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         OutlinedTextField(
             value = description,
             onValueChange = { description = it },
             label = { Text("Description") },
-            placeholder = { Text("Tell us about the book's condition...") },
+            placeholder = { Text("Describe the book's cover, condition, and story.") },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             minLines = 3,
