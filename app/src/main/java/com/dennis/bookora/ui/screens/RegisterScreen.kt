@@ -19,6 +19,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -45,6 +46,7 @@ fun RegisterScreen(
     val confirmVisible = remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -199,6 +201,7 @@ fun RegisterScreen(
             Button(
                 onClick = {
                     scope.launch {
+                        FirebaseAuthManager.ensureInitialized(context)
                         if (password.value != confirmPassword.value) {
                             snackbarHostState.showSnackbar("Passwords do not match")
                             return@launch
