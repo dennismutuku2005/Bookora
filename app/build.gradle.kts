@@ -4,10 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt)
+    id("com.google.gms.google-services")
 }
-
-// Apply Google services plugin for Firebase (uses google-services.json)
-apply(plugin = "com.google.gms.google-services")
 
 android {
     namespace = "com.dennis.bookora"
@@ -92,10 +90,11 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:32.3.1"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.android.gms:play-services-auth:20.6.0")
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.analytics)
+    implementation(libs.google.play.services.auth)
 
     // Tests
     testImplementation(libs.junit)
