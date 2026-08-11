@@ -9,5 +9,6 @@ data class BookItem(
     val type: String,
     val username: String,
     val timeAgo: String,
+    val views: Int,
     val color: Color
 )
