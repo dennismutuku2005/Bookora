@@ -11,6 +11,8 @@ coilCompose = "2.7.0"
 coroutines = "1.8.1"
 hilt = "2.56.2"
 hiltNavigationCompose = "1.2.0"
+firebaseBom = "34.17.0"
+googlePlayServicesAuth = "21.6.0"
 
 junit = "4.13.2"
 androidxJunit = "1.2.1"
@@ -51,6 +53,13 @@ androidx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx
 com-google-dagger-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 com-google-dagger-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+
+# Firebase
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+google-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googlePlayServicesAuth" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
