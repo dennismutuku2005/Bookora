@@ -82,6 +82,9 @@ fun BookoraNavGraph(
                 },
                 onTermsClick = {
                     navController.navigate(BookoraDestinations.Terms)
+                },
+                onNotificationClick = { notificationId ->
+                    navController.navigate(BookoraDestinations.notificationDetails(notificationId))
                 }
             )
         }
@@ -93,6 +96,17 @@ fun BookoraNavGraph(
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             BookDetailsScreen(
                 bookId = bookId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = BookoraDestinations.NotificationDetailsPattern,
+            arguments = listOf(navArgument("notificationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
+            NotificationDetailScreen(
+                notificationId = notificationId,
                 onBack = { navController.popBackStack() }
             )
         }
