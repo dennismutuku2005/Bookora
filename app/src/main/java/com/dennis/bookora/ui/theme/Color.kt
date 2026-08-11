@@ -7,12 +7,10 @@ val Blue40 = Color(0xFF0061A4)
 val OnBlue40 = Color(0xFFFFFFFF)
 val BlueContainer90 = Color(0xFFD1E4FF)
 val OnBlueContainer10 = Color(0xFF001D36)
-
 val SecondaryBlue40 = Color(0xFF535F70)
 val OnSecondaryBlue40 = Color(0xFFFFFFFF)
 val SecondaryBlueContainer90 = Color(0xFFD7E3F7)
 val OnSecondaryBlueContainer10 = Color(0xFF101C2B)
-
 val TertiaryBlue40 = Color(0xFF6B5778)
 val OnTertiaryBlue40 = Color(0xFFFFFFFF)
 val TertiaryBlueContainer90 = Color(0xFFF2DAFF)
