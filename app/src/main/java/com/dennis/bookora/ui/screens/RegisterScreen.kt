@@ -11,9 +11,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -40,19 +43,22 @@ fun RegisterScreen(
     val confirmPassword = remember { mutableStateOf("") }
     val passwordVisible = remember { mutableStateOf(false) }
     val confirmVisible = remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) { inner ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Image(
                 painter = painterResource(id = R.drawable.logo),
                 contentDescription = "Bookora Logo",
@@ -190,7 +196,20 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             Button(
-                onClick = onRegisterSuccess,
+                onClick = {
+                    scope.launch {
+                        if (password.value != confirmPassword.value) {
+                            snackbarHostState.showSnackbar("Passwords do not match")
+                            return@launch
+                        }
+                        try {
+                            val ok = FirebaseAuthManager.register(email.value, password.value, firstName.value + " " + lastName.value)
+                            if (ok) onRegisterSuccess() else snackbarHostState.showSnackbar("Registration failed")
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar(e.message ?: "Registration error")
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
