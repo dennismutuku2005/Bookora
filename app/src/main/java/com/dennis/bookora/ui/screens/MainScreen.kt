@@ -1,109 +1,83 @@
 package com.dennis.bookora.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AddCircle
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.dennis.bookora.R
 
 private enum class MainTab(val title: String) {
     Home("Home"),
     Search("Search"),
     Create("Create"),
-    Favorites("Favorites"),
+    Notifications("Alerts"),
     Profile("Profile")
 }
 
+data class BookItem(
+    val title: String,
+    val author: String,
+    val type: String, // "Exchange" or "Giveaway"
+    val color: Color
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(onLogout: () -> Unit = {}) {
     val (selectedTab, setSelectedTab) = remember { mutableStateOf(MainTab.Home) }
 
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Good Morning, Dennis",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        text = when(selectedTab) {
+                            MainTab.Home -> "Bookora"
+                            else -> selectedTab.title
+                        },
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     )
                 },
                 actions = {
-                    Card(
-                        shape = CircleShape,
-                        modifier = Modifier.size(44.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.Person,
-                                contentDescription = "Profile",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
+                    if (selectedTab == MainTab.Profile) {
+                        IconButton(onClick = onLogout) {
+                            Icon(Icons.Default.Logout, contentDescription = "Logout", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
-
-            Box(modifier = Modifier.weight(1f)) {
-                when (selectedTab) {
-                    MainTab.Home -> HomeTabContent()
-                    MainTab.Search -> SearchTabContent()
-                    MainTab.Create -> CreateTabContent()
-                    MainTab.Favorites -> FavoritesTabContent()
-                    MainTab.Profile -> ProfileTabContent()
-                }
-            }
-
+        },
+        bottomBar = {
             NavigationBar(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
-                MainTab.values().forEach { tab ->
+                MainTab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = tab == selectedTab,
                         onClick = { setSelectedTab(tab) },
@@ -113,22 +87,25 @@ fun MainScreen() {
                                     MainTab.Home -> Icons.Rounded.Home
                                     MainTab.Search -> Icons.Rounded.Search
                                     MainTab.Create -> Icons.Rounded.AddCircle
-                                    MainTab.Favorites -> Icons.Rounded.FavoriteBorder
+                                    MainTab.Notifications -> Icons.Rounded.Notifications
                                     MainTab.Profile -> Icons.Rounded.Person
                                 },
-                                contentDescription = tab.title,
-                                tint = if (tab == selectedTab) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                contentDescription = tab.title
                             )
                         },
-                        label = {
-                            Text(
-                                text = tab.title,
-                                color = if (tab == selectedTab) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
+                        label = { Text(tab.title) }
                     )
                 }
+            }
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+            when (selectedTab) {
+                MainTab.Home -> HomeTabContent()
+                MainTab.Search -> SearchTabContent()
+                MainTab.Create -> CreateTabContent()
+                MainTab.Notifications -> NotificationsTabContent()
+                MainTab.Profile -> ProfileTabContent(onLogout)
             }
         }
     }
@@ -136,140 +113,214 @@ fun MainScreen() {
 
 @Composable
 private fun HomeTabContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 20.dp, vertical = 24.dp)
-    ) {
-        Text(
-            text = "Discover new reads",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
-        )
+    val gummyBooks = listOf(
+        BookItem("Atomic Habits", "James Clear", "Giveaway", Color(0xFFFFEBEE)),
+        BookItem("The Alchemist", "Paulo Coelho", "Exchange", Color(0xFFE3F2FD)),
+        BookItem("Deep Work", "Cal Newport", "Exchange", Color(0xFFF1F8E9)),
+        BookItem("Psychology of Money", "Morgan Housel", "Giveaway", Color(0xFFFFF3E0))
+    )
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Text("Trending Now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Featured today",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Browse exchange and giveaway books curated for your community.",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
-                )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(gummyBooks) { book ->
+                GummyBookCard(book)
             }
         }
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Popular categories",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            CategoryChip("Fiction")
-            CategoryChip("Tech")
-            CategoryChip("Lifestyle")
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        Text("Recently Added", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(16.dp))
+        gummyBooks.reversed().forEach { book ->
+            BookHorizontalCard(book)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun GummyBookCard(book: BookItem) {
+    Card(
+        modifier = Modifier.size(width = 160.dp, height = 220.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = book.color)
+    ) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+            Box(modifier = Modifier.size(40.dp).background(Color.White.copy(alpha = 0.5f), CircleShape), contentAlignment = Alignment.Center) {
+                Text(if(book.type == "Exchange") "🔄" else "🎁", fontSize = 20.sp)
+            }
+            Column {
+                Text(book.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 2)
+                Text(book.author, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            Badge(containerColor = MaterialTheme.colorScheme.primary) {
+                Text(book.type, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color.White, fontSize = 10.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookHorizontalCard(book: BookItem) {
+    Card(
+        modifier = Modifier.fillMaxWidth().height(100.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(12.dp)) {
+            Box(modifier = Modifier.size(70.dp).clip(RoundedCornerShape(12.dp)).background(book.color), contentAlignment = Alignment.Center) {
+                Text("📖", fontSize = 30.sp)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(book.title, fontWeight = FontWeight.Bold)
+                Text(book.author, style = MaterialTheme.typography.bodySmall)
+            }
+            Text(
+                book.type,
+                color = if(book.type == "Giveaway") Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium
+            )
         }
     }
 }
 
 @Composable
 private fun SearchTabContent() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Search the Bookora library",
-            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f))
-        )
-    }
-}
-
-@Composable
-private fun CreateTabContent() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Create a listing and share your book with the community.",
-            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f)),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 24.dp)
-        )
-    }
-}
-
-@Composable
-private fun FavoritesTabContent() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Your saved favorites will appear here.",
-            style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f))
-        )
-    }
-}
-
-@Composable
-private fun ProfileTabContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Dennis Mutuku",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "member since June 2023",
-            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f))
+    var query by remember { mutableStateOf("") }
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text("Search books, authors...") },
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            shape = RoundedCornerShape(16.dp)
         )
         Spacer(modifier = Modifier.height(20.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            backgroundColor = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(text = "Avid reader and sharer.", style = MaterialTheme.typography.bodyLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Manage your profile, listings, and notifications from here.", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)))
+        Text("Results", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(12.dp))
+        // Simple list for search results
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(5) {
+                BookHorizontalCard(BookItem("Search Result $it", "Author Name", if(it % 2 == 0) "Exchange" else "Giveaway", Color.White))
             }
         }
     }
 }
 
 @Composable
-private fun CategoryChip(label: String) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier,
-        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
-        )
+private fun CreateTabContent() {
+    var title by remember { mutableStateOf("") }
+    var author by remember { mutableStateOf("") }
+    var isExchange by remember { mutableStateOf(true) }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
+        Text("New Listing", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Box(modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                Text("Add Book Photo", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Book Title") }, modifier = Modifier.fillMaxWidth())
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Author") }, modifier = Modifier.fillMaxWidth())
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Listing Type", fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = isExchange, onClick = { isExchange = true })
+            Text("Exchange", modifier = Modifier.clickable { isExchange = true })
+            Spacer(modifier = Modifier.width(24.dp))
+            RadioButton(selected = !isExchange, onClick = { isExchange = false })
+            Text("Giveaway", modifier = Modifier.clickable { isExchange = false })
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(
+            onClick = { /* Create */ },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Post Listing")
+        }
+    }
+}
+
+@Composable
+private fun NotificationsTabContent() {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        repeat(3) {
+            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("New book available in your area!", fontWeight = FontWeight.Bold)
+                        Text("2 hours ago", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileTabContent(onLogout: () -> Unit) {
+    var username by remember { mutableStateOf("dennis_readz") }
+    var bio by remember { mutableStateOf("Avid reader. Loving the Bookora community!") }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                Text("DM", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+            Box(modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Edit, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth())
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("Bio") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("My Activity", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    ActivityStat("12", "Listings")
+                    ActivityStat("45", "Exchanges")
+                    ActivityStat("8", "Given")
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(48.dp))
+        TextButton(onClick = onLogout) {
+            Icon(Icons.Default.Logout, null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Logout Session", color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+@Composable
+private fun ActivityStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.bodySmall)
     }
 }
