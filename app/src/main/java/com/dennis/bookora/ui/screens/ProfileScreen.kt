@@ -11,6 +11,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.models.User
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.TextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,9 +37,33 @@ fun ProfileScreen(
     onPrivacyClick: () -> Unit,
     onTermsClick: () -> Unit
 ) {
-    var username by remember { mutableStateOf("dennis_readz") }
-    var bio by remember { mutableStateOf("Sharing stories, one book at a time. 📚") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    var currentUser by remember { mutableStateOf<User?>(null) }
+    var firstName by rememberSaveable { mutableStateOf("") }
+    var lastName by rememberSaveable { mutableStateOf("") }
+    var username by rememberSaveable { mutableStateOf("") }
+    var bio by rememberSaveable { mutableStateOf("") }
     var shareContactByEmail by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val uid = FirebaseAuthManager.currentUser()?.uid
+        if (uid != null) {
+            try {
+                val profile = FirebaseAuthManager.getUserProfile(uid)
+                currentUser = profile
+                if (profile != null) {
+                    firstName = profile.firstName
+                    lastName = profile.lastName
+                    username = profile.email.substringBefore('@')
+                    bio = profile.bio
+                }
+            } catch (e: Exception) {
+                // ignore for now
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -70,18 +104,67 @@ fun ProfileScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "@$username",
+            text = "@${if (username.isBlank()) "user" else username}",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Text(
-            text = bio,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 40.dp)
+
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = firstName,
+            onValueChange = { firstName = it },
+            label = { Text("First name") },
+            modifier = Modifier.fillMaxWidth(0.9f),
+            shape = RoundedCornerShape(12.dp)
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = lastName,
+            onValueChange = { lastName = it },
+            label = { Text("Last name") },
+            modifier = Modifier.fillMaxWidth(0.9f),
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = bio,
+            onValueChange = { bio = it },
+            label = { Text("Bio") },
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .height(120.dp),
+            shape = RoundedCornerShape(12.dp),
+            maxLines = 4
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = {
+                scope.launch {
+                    val uid = FirebaseAuthManager.currentUser()?.uid
+                    if (uid != null) {
+                        try {
+                            val updates = mapOf(
+                                "firstName" to firstName,
+                                "lastName" to lastName,
+                                "bio" to bio
+                            )
+                            FirebaseAuthManager.updateUserProfile(uid, updates)
+                            snackbarHostState.showSnackbar("Profile updated")
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar(e.message ?: "Update failed")
+                        }
+                    }
+                }
+            }) { Text("Save Changes") }
+            OutlinedButton(onClick = {
+                // Reset to loaded profile
+                firstName = currentUser?.firstName ?: ""
+                lastName = currentUser?.lastName ?: ""
+                bio = currentUser?.bio ?: ""
+            }) { Text("Reset") }
+        }
         
         Spacer(modifier = Modifier.height(28.dp))
         
@@ -157,7 +240,7 @@ fun ProfileScreen(
         
         Spacer(modifier = Modifier.height(40.dp))
         
-        OutlinedButton(
+            OutlinedButton(
             onClick = onLogout,
             modifier = Modifier
                 .fillMaxWidth()
