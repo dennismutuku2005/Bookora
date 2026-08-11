@@ -17,15 +17,13 @@ import androidx.compose.ui.unit.dp
 import com.dennis.bookora.models.Notification
 
 @Composable
-fun NotificationsScreen() {
+fun NotificationsScreen(onNotificationClick: (String) -> Unit = {}) {
     val notifications = listOf(
         Notification("1", "New listing nearby", "Someone just posted 'The Great Gatsby' near you.", "1h ago", false),
         Notification("2", "Book request accepted", "Your exchange request was approved.", "3h ago", true),
         Notification("3", "Reminder", "Don't forget to confirm the pickup time.", "5h ago", false),
         Notification("4", "New message", "You have a new message from reader_jane.", "7h ago", true)
     )
-
-    var selectedNotification by remember { mutableStateOf<Notification?>(null) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(
@@ -41,7 +39,7 @@ fun NotificationsScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 6.dp)
-                    .clickable { selectedNotification = notification },
+                    .clickable { onNotificationClick(notification.id) },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -72,20 +70,4 @@ fun NotificationsScreen() {
         }
     }
 
-    if (selectedNotification != null) {
-        AlertDialog(
-            onDismissRequest = { selectedNotification = null },
-            confirmButton = {
-                TextButton(onClick = { selectedNotification = null }) {
-                    Text("Close")
-                }
-            },
-            title = {
-                Text(selectedNotification?.title.orEmpty(), fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Text(selectedNotification?.subtitle.orEmpty())
-            }
-        )
-    }
 }
