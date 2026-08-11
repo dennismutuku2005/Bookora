@@ -32,7 +32,7 @@ fun SearchScreen(onBookClick: (String) -> Unit) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(5) {
                 CleanBookCard(
-                    BookItem(it.toString(), "Search Result $it", "Author Name", if(it % 2 == 0) "Exchange" else "Giveaway", "user_$it", "${it+1}h ago", Color(0xFFF8F9FA)),
+                    BookItem(it.toString(), "Search Result $it", "Author Name", if(it % 2 == 0) "Exchange" else "Giveaway", "user_$it", "${it+1}h ago", 20 + it * 5, Color(0xFFF8F9FA)),
                     onBookClick
                 )
             }
