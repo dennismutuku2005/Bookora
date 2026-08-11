@@ -84,7 +84,11 @@ fun BookoraNavGraph(
         }
 
         composable(BookoraDestinations.Main) {
-            MainScreen()
+            MainScreen(onLogout = {
+                navController.navigate(BookoraDestinations.Welcome) {
+                    popUpTo(BookoraDestinations.Main) { inclusive = true }
+                }
+            })
         }
     }
 }
