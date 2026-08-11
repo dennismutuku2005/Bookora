@@ -20,7 +20,10 @@ object BookoraDestinations {
     const val Privacy = "privacy"
     const val Terms = "terms"
     const val Notifications = "notifications"
+    const val NotificationDetails = "notification_details"
 
     fun bookDetails(bookId: String) = "book_details/$bookId"
     const val BookDetailsPattern = "book_details/{bookId}"
+    fun notificationDetails(notificationId: String) = "notification_details/$notificationId"
+    const val NotificationDetailsPattern = "notification_details/{notificationId}"
 }
