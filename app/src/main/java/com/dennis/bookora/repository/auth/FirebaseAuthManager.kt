@@ -1,18 +1,26 @@
 package com.dennis.bookora.repository.auth
 
+import android.content.Context
 import com.dennis.bookora.models.User
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
 object FirebaseAuthManager {
-    private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+    fun ensureInitialized(context: Context) {
+        if (FirebaseApp.getApps(context).isEmpty()) {
+            FirebaseApp.initializeApp(context)
+        }
+    }
+
+    private val auth get() = FirebaseAuth.getInstance()
     private val firestore by lazy { Firebase.firestore }
 
     suspend fun register(email: String, password: String, firstName: String, lastName: String, phone: String = ""): Boolean {
