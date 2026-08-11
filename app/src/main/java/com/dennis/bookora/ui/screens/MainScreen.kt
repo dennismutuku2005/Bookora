@@ -79,7 +79,7 @@ fun MainScreen(
                 actions = {
                     if (selectedTab == MainTab.Profile) {
                         IconButton(onClick = onLogout) {
-                            Icon(Icons.Default.Logout, "Logout", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.AutoMirrored.Rounded.Logout, "Logout", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 },
