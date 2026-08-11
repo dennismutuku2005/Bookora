@@ -18,8 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -138,18 +137,17 @@ private fun HomeTabContent(onBookClick: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("Trending Now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(books) { book ->
                 VerticalBookCard(book, onBookClick)
             }
         }
         
         Spacer(modifier = Modifier.height(32.dp))
-        Text("Feed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        Text("Nearby Listings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Spacer(modifier = Modifier.height(12.dp))
         books.forEach { book ->
             CleanBookCard(book, onBookClick)
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -159,7 +157,6 @@ private fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
     Card(
         modifier = Modifier
             .width(170.dp)
-            .padding(end = 12.dp)
             .clickable { onBookClick(book.id) },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -374,58 +371,208 @@ private fun SearchTabContent(onBookClick: (String) -> Unit) {
 private fun CreateTabContent() {
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var location by remember { mutableStateOf("") }
     var isExchange by remember { mutableStateOf(true) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
-        Text("Post a Book", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(24.dp))
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> selectedImageUri = uri }
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "List a New Book",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = "Share the joy of reading with others",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         
+        Spacer(modifier = Modifier.height(28.dp))
+        
+        // Image Picker
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .clickable { },
+                .height(220.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .clickable {
+                    photoPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("Add Book Photos", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+            if (selectedImageUri != null) {
+                AsyncImage(
+                    model = selectedImageUri,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(12.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(
+                        Icons.Rounded.Edit,
+                        null,
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(20.dp),
+                        tint = Color.White
+                    )
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Surface(
+                        modifier = Modifier.size(64.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Rounded.AddPhotoAlternate,
+                                null,
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Add Book Cover Photo",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Make it look good!",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
-        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Book Title") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+        Spacer(modifier = Modifier.height(28.dp))
+        
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Book Title") },
+            placeholder = { Text("e.g. The Alchemist") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Rounded.MenuBook, null, tint = MaterialTheme.colorScheme.primary) }
+        )
+        
         Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Author Name") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+        
+        OutlinedTextField(
+            value = author,
+            onValueChange = { author = it },
+            label = { Text("Author Name") },
+            placeholder = { Text("e.g. Paulo Coelho") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Rounded.PersonOutline, null, tint = MaterialTheme.colorScheme.primary) }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text("Description") },
+            placeholder = { Text("Tell us about the book's condition...") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            minLines = 3,
+            maxLines = 5
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = location,
+            onValueChange = { location = it },
+            label = { Text("Your Location") },
+            placeholder = { Text("e.g. Westlands, Nairobi") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary) },
+            trailingIcon = {
+                IconButton(onClick = { /* Open map logic */ }) {
+                    Icon(Icons.Rounded.Map, "Select on Map", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Listing Type", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        
+        Text(
+            "Listing Type",
+            fontWeight = FontWeight.ExtraBold,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        
+        Row(
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .fillMaxWidth()
+        ) {
             FilterChip(
                 selected = isExchange,
                 onClick = { isExchange = true },
-                label = { Text("Exchange") },
-                leadingIcon = if (isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)) } } else null
+                label = { Text("Exchange", modifier = Modifier.padding(8.dp)) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = if (isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(20.dp)) } } else null
             )
             Spacer(modifier = Modifier.width(12.dp))
             FilterChip(
                 selected = !isExchange,
                 onClick = { isExchange = false },
-                label = { Text("Giveaway") },
-                leadingIcon = if (!isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)) } } else null
+                label = { Text("Giveaway", modifier = Modifier.padding(8.dp)) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = if (!isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(20.dp)) } } else null
             )
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(36.dp))
+        
         Button(
-            onClick = { },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp)
+            onClick = { /* Publish logic */ },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+            shape = RoundedCornerShape(16.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
-            Text("Publish Listing", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Icon(Icons.Rounded.Publish, null)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Publish Listing", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
+        
+        Spacer(modifier = Modifier.height(100.dp)) // Extra space for bottom nav
     }
 }
 
@@ -458,26 +605,68 @@ private fun NotificationsTabContent() {
 private fun ProfileTabContent(onLogout: () -> Unit) {
     var username by remember { mutableStateOf("dennis_readz") }
     var bio by remember { mutableStateOf("Sharing stories, one book at a time. 📚") }
+    var shareContactByEmail by remember { mutableStateOf(true) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(40.dp))
+        
+        // Profile Header
         Box(contentAlignment = Alignment.BottomEnd) {
-            Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                Text("DM", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            }
-            Surface(modifier = Modifier.size(28.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 2.dp) {
+            Surface(
+                modifier = Modifier.size(110.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+            ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Edit, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Text(
+                        "DM",
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 4.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("@$username", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(bio, style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "@$username",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = bio,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 40.dp)
+        )
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
         
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             StatCard("12", "Posts", Modifier.weight(1f))
             StatCard("45", "Exchanges", Modifier.weight(1f))
             StatCard("8", "Given", Modifier.weight(1f))
@@ -485,18 +674,81 @@ private fun ProfileTabContent(onLogout: () -> Unit) {
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProfileMenuItem(Icons.Rounded.History, "My Listings")
-            ProfileMenuItem(Icons.Rounded.Settings, "Settings")
-            ProfileMenuItem(Icons.Rounded.Help, "Help & Support")
+        // Menu Items
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                "Account Settings",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            )
+            
+            ProfileMenuItem(Icons.Rounded.LibraryBooks, "My Listings")
+            
+            // Toggle for sharing contact
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.Share, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Share Contact Info", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Text("When someone claims your book", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = shareContactByEmail,
+                        onCheckedChange = { shareContactByEmail = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+            
+            ProfileMenuItem(Icons.Rounded.Settings, "General Settings")
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                "Support & Legal",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            )
+            
+            ProfileMenuItem(Icons.Rounded.HelpOutline, "Help & Support")
+            ProfileMenuItem(Icons.Rounded.PrivacyTip, "Privacy Policy")
+            ProfileMenuItem(Icons.Rounded.Description, "Terms & Conditions")
         }
         
-        Spacer(modifier = Modifier.height(48.dp))
-        TextButton(onClick = onLogout) {
-            Icon(Icons.Default.Logout, null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Logout Session", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(40.dp))
+        
+        OutlinedButton(
+            onClick = onLogout,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Icon(Icons.Rounded.Logout, null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Logout Session", fontWeight = FontWeight.Bold)
         }
+        
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 
@@ -515,19 +767,42 @@ private fun StatCard(value: String, label: String, modifier: Modifier) {
 }
 
 @Composable
-private fun ProfileMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+private fun ProfileMenuItem(icon: ImageVector, label: String) {
     Surface(
         onClick = { },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth(),
-        color = Color.Transparent
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(modifier = Modifier.width(16.dp))
-            Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             Spacer(modifier = Modifier.weight(1f))
-            Icon(Icons.Rounded.ChevronRight, null, modifier = Modifier.size(20.dp), tint = Color.LightGray)
+            Icon(
+                Icons.Rounded.ChevronRight,
+                null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
         }
     }
 }
