@@ -11,7 +11,8 @@ data class User(
     val rating: Double,
     val booksPosted: Int,
     val booksShared: Int,
-    val favoritesCount: Int
+    val favoritesCount: Int,
+    val bio: String = ""
 ) {
     val fullName: String get() = "$firstName $lastName"
 }
