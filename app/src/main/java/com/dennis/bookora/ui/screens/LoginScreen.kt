@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import com.dennis.bookora.repository.auth.FirebaseAuthManager
 import androidx.compose.material3.SnackbarHost
@@ -39,6 +40,7 @@ fun LoginScreen(
     val passwordVisible = remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -135,6 +137,7 @@ fun LoginScreen(
             Button(
                 onClick = {
                     scope.launch {
+                        FirebaseAuthManager.ensureInitialized(context)
                         try {
                             val ok = FirebaseAuthManager.login(email.value, password.value)
                             if (ok) {
