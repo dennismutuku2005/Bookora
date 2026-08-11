@@ -2,20 +2,43 @@ package com.dennis.bookora.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val BackgroundCream = Color(0xFFFAF7F2)
-val SurfaceWhite = Color(0xFFFFFFFF)
-val PrimaryIndigo = Color(0xFF5B3DF5)
-val PrimaryIndigoContainer = Color(0xFFE9DEFF)
-val OnPrimary = Color(0xFFFFFFFF)
-val OnBackground = Color(0xFF1A1A1A)
-val AccentCoral = Color(0xFFF2723A)
-val NeutralGray = Color(0xFF6E6B71)
-val DarkBackground = Color(0xFF111012)
-val DarkSurface = Color(0xFF1C1A1F)
-val DarkOnSurface = Color(0xFFF4EFF6)
-val DarkPrimary = Color(0xFFB9A7FF)
-val DarkAccent = Color(0xFFFFB59A)
+// Light Theme - Material Blue
+val Blue40 = Color(0xFF0061A4)
+val OnBlue40 = Color(0xFFFFFFFF)
+val BlueContainer90 = Color(0xFFD1E4FF)
+val OnBlueContainer10 = Color(0xFF001D36)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val SecondaryBlue40 = Color(0xFF535F70)
+val OnSecondaryBlue40 = Color(0xFFFFFFFF)
+val SecondaryBlueContainer90 = Color(0xFFD7E3F7)
+val OnSecondaryBlueContainer10 = Color(0xFF101C2B)
+
+val TertiaryBlue40 = Color(0xFF6B5778)
+val OnTertiaryBlue40 = Color(0xFFFFFFFF)
+val TertiaryBlueContainer90 = Color(0xFFF2DAFF)
+val OnTertiaryBlueContainer10 = Color(0xFF251431)
+
+val Error40 = Color(0xFFBA1A1A)
+val OnError40 = Color(0xFFFFFFFF)
+val ErrorContainer90 = Color(0xFFFFDAD6)
+val OnErrorContainer10 = Color(0xFF410002)
+
+val Neutral99 = Color(0xFFFDFCFF)
+val Neutral10 = Color(0xFF1A1C1E)
+val NeutralVariant90 = Color(0xFFE0E2EC)
+val NeutralVariant30 = Color(0xFF44474E)
+
+// Dark Theme - Material Blue
+val Blue80 = Color(0xFF9ECAFF)
+val OnBlue20 = Color(0xFF003258)
+val BlueContainer30 = Color(0xFF00497D)
+val OnBlueContainer90 = Color(0xFFD1E4FF)
+
+val SecondaryBlue80 = Color(0xFFBBC7DB)
+val OnSecondaryBlue20 = Color(0xFF253140)
+val SecondaryBlueContainer30 = Color(0xFF3B4858)
+val OnSecondaryBlueContainer90 = Color(0xFFD7E3F7)
+
+val DarkBackground = Color(0xFF1A1C1E)
+val DarkSurface = Color(0xFF1A1C1E)
+val DarkOnSurface = Color(0xFFE2E2E6)
