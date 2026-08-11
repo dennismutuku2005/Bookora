@@ -54,6 +54,7 @@ fun RegisterScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(inner)
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.Center,
@@ -203,7 +204,13 @@ fun RegisterScreen(
                             return@launch
                         }
                         try {
-                            val ok = FirebaseAuthManager.register(email.value, password.value, firstName.value + " " + lastName.value)
+                            val ok = FirebaseAuthManager.register(
+                                email = email.value,
+                                password = password.value,
+                                firstName = firstName.value,
+                                lastName = lastName.value,
+                                phone = phone.value
+                            )
                             if (ok) onRegisterSuccess() else snackbarHostState.showSnackbar("Registration failed")
                         } catch (e: Exception) {
                             snackbarHostState.showSnackbar(e.message ?: "Registration error")
@@ -240,6 +247,7 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
 }
 
 @Preview(showBackground = true)
