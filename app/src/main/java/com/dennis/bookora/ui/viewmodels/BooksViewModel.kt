@@ -19,16 +19,22 @@ class BooksViewModel @Inject constructor(
     var featured = mutableStateOf<List<Book>>(emptyList())
         private set
 
+    var isLoading = mutableStateOf(true)
+        private set
+
     init {
         reload()
     }
 
     fun reload() {
         viewModelScope.launch {
+            isLoading.value = true
             try {
                 books.value = repo.getBooks()
                 featured.value = repo.getFeaturedBooks()
             } catch (_: Exception) {
+            } finally {
+                isLoading.value = false
             }
         }
     }
