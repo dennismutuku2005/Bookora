@@ -49,25 +49,27 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onPrivacyClick: () -> Unit,
     onTermsClick: () -> Unit,
-    onMyListingsClick: () -> Unit
+    onMyListingsClick: () -> Unit,
+    onFavoritesClick: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var isLoading by remember { mutableStateOf(true) }
+    val initialCachedUser = remember { FirebaseAuthManager.getCachedUser() }
+    var isLoading by remember { mutableStateOf(initialCachedUser == null) }
     var isSaving by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
 
-    var currentUser by remember { mutableStateOf<User?>(null) }
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
-    var username by rememberSaveable { mutableStateOf("") }
-    var phone by rememberSaveable { mutableStateOf("") }
-    var bio by rememberSaveable { mutableStateOf("") }
-    var avatarUrl by rememberSaveable { mutableStateOf("") }
+    var currentUser by remember { mutableStateOf<User?>(initialCachedUser) }
+    var firstName by rememberSaveable { mutableStateOf(initialCachedUser?.firstName ?: "") }
+    var lastName by rememberSaveable { mutableStateOf(initialCachedUser?.lastName ?: "") }
+    var username by rememberSaveable { mutableStateOf(initialCachedUser?.username ?: "") }
+    var phone by rememberSaveable { mutableStateOf(initialCachedUser?.phone ?: "") }
+    var bio by rememberSaveable { mutableStateOf(initialCachedUser?.bio?.ifEmpty { "Book lover and exchange enthusiast 📚" } ?: "") }
+    var avatarUrl by rememberSaveable { mutableStateOf(initialCachedUser?.avatarUrl ?: "") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var shareContactByEmail by remember { mutableStateOf(true) }
+    var shareContactByEmail by remember { mutableStateOf(initialCachedUser?.shareContactByEmail ?: true) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -75,7 +77,6 @@ fun ProfileScreen(
         selectedImageUri = uri
     }
 
-    // Username availability state
     var usernameStatus by remember { mutableStateOf(UsernameStatus.IDLE) }
 
     LaunchedEffect(Unit) {
@@ -83,9 +84,9 @@ fun ProfileScreen(
             FirebaseAuthManager.ensureInitialized(context)
             val uid = FirebaseAuthManager.currentUser()?.uid
             if (uid != null) {
-                val profile = kotlinx.coroutines.withTimeoutOrNull(4000L) {
+                val profile = kotlinx.coroutines.withTimeoutOrNull(3000L) {
                     FirebaseAuthManager.getUserProfile(uid)
-                } ?: run {
+                } ?: (initialCachedUser ?: run {
                     val fbUser = FirebaseAuthManager.currentUser()
                     val names = fbUser?.displayName?.split(" ") ?: emptyList()
                     User(
@@ -103,7 +104,7 @@ fun ProfileScreen(
                         favoritesCount = 0,
                         bio = "Book lover and exchange enthusiast 📚"
                     )
-                }
+                })
                 currentUser = profile
                 firstName = profile.firstName
                 lastName = profile.lastName
@@ -119,7 +120,6 @@ fun ProfileScreen(
         }
     }
 
-    // Debounced username availability check while editing
     LaunchedEffect(username, isEditing) {
         if (!isEditing) return@LaunchedEffect
         if (username.isBlank() || username == currentUser?.username) {
@@ -127,7 +127,7 @@ fun ProfileScreen(
             return@LaunchedEffect
         }
         usernameStatus = UsernameStatus.CHECKING
-        delay(450) // debounce
+        delay(450)
         try {
             val uid = FirebaseAuthManager.currentUser()?.uid
             val available = uid != null && FirebaseAuthManager.isUsernameAvailable(username, uid)
@@ -177,7 +177,7 @@ fun ProfileScreen(
                     ) {
                         StatItem(count = (currentUser?.booksPosted ?: 0).toString(), label = "Posts")
                         StatItem(count = (currentUser?.booksShared ?: 0).toString(), label = "Exchanges")
-                        StatItem(count = (currentUser?.favoritesCount ?: 0).toString(), label = "Given")
+                        StatItem(count = (currentUser?.favoritesCount ?: 0).toString(), label = "Favorites")
                     }
                 }
 
@@ -327,7 +327,7 @@ fun ProfileScreen(
                                                 "shareContactByEmail" to shareContactByEmail
                                             )
                                             FirebaseAuthManager.updateUserProfile(uid, updates)
-                                            currentUser = FirebaseAuthManager.getUserProfile(uid)
+                                            currentUser = FirebaseAuthManager.getUserProfile(uid, forceRefresh = true)
                                             avatarUrl = finalAvatarUrl
                                             selectedImageUri = null
                                             isEditing = false
@@ -359,7 +359,7 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            Divider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 1.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 1.dp)
             Spacer(modifier = Modifier.height(20.dp))
 
             // ---------- Settings ----------
@@ -382,6 +382,12 @@ fun ProfileScreen(
                     icon = Icons.Outlined.Book,
                     title = "My Listings",
                     onClick = onMyListingsClick
+                )
+
+                SettingsMenuItem(
+                    icon = Icons.Outlined.FavoriteBorder,
+                    title = "My Favorites",
+                    onClick = onFavoritesClick
                 )
 
                 SettingsMenuItem(
