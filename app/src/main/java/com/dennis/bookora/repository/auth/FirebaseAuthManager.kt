@@ -19,6 +19,8 @@ import java.util.*
 object FirebaseAuthManager {
     private const val TAG = "FirebaseAuthManager"
 
+    private var cachedUser: User? = null
+
     fun ensureInitialized(context: Context) {
         if (FirebaseApp.getApps(context).isEmpty()) {
             FirebaseApp.initializeApp(context)
@@ -28,6 +30,8 @@ object FirebaseAuthManager {
     private val auth get() = FirebaseAuth.getInstance()
     private val firestore by lazy { Firebase.firestore }
     private val storage by lazy { Firebase.storage }
+
+    fun getCachedUser(): User? = cachedUser
 
     suspend fun uploadProfileImage(uid: String, imageUri: Uri): String {
         try {
@@ -68,6 +72,22 @@ object FirebaseAuthManager {
                 "shareContactByEmail" to true
             )
             firestore.collection("users").document(uid).set(userDoc).await()
+            val newUser = User(
+                id = uid,
+                firstName = firstName,
+                lastName = lastName,
+                username = username.ifBlank { email.substringBefore("@") },
+                email = email,
+                phone = phone,
+                avatarUrl = "",
+                memberSince = sdf.format(Date()),
+                rating = 0.0,
+                booksPosted = 0,
+                booksShared = 0,
+                favoritesCount = 0,
+                bio = "Book lover and exchange enthusiast 📚"
+            )
+            cachedUser = newUser
             return result.user != null
         } catch (e: Exception) {
             Log.e(TAG, "Register failed", e)
@@ -78,6 +98,7 @@ object FirebaseAuthManager {
     suspend fun login(email: String, password: String): Boolean {
         try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
+            cachedUser = null
             return result.user != null
         } catch (e: Exception) {
             Log.e(TAG, "Login failed", e)
@@ -114,6 +135,7 @@ object FirebaseAuthManager {
                 )
                 firestore.collection("users").document(uid).set(userDoc).await()
             }
+            cachedUser = null
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Google sign in failed", e)
@@ -122,17 +144,21 @@ object FirebaseAuthManager {
     }
 
     fun logout() {
+        cachedUser = null
         auth.signOut()
     }
 
     fun currentUser() = auth.currentUser
 
-    suspend fun getUserProfile(uid: String): User? {
+    suspend fun getUserProfile(uid: String, forceRefresh: Boolean = false): User? {
+        if (!forceRefresh && cachedUser != null && cachedUser?.id == uid) {
+            return cachedUser
+        }
+
         try {
             val firebaseUser = auth.currentUser
             val doc = firestore.collection("users").document(uid).get().await()
             if (!doc.exists()) {
-                // Create user doc if missing
                 val displayName = firebaseUser?.displayName ?: ""
                 val parts = displayName.split(" ")
                 val first = parts.getOrNull(0)?.ifBlank { "Book" } ?: "Book"
@@ -155,7 +181,7 @@ object FirebaseAuthManager {
                     "shareContactByEmail" to true
                 )
                 try { firestore.collection("users").document(uid).set(fallbackUserDoc).await() } catch (_: Exception) {}
-                return User(
+                val u = User(
                     id = uid,
                     firstName = first,
                     lastName = last,
@@ -171,6 +197,8 @@ object FirebaseAuthManager {
                     bio = "Book lover and exchange enthusiast 📚",
                     shareContactByEmail = true
                 )
+                if (uid == firebaseUser?.uid) cachedUser = u
+                return u
             }
             val data = doc.data ?: return null
 
@@ -180,7 +208,7 @@ object FirebaseAuthManager {
                 (data["booksPosted"] as? Number)?.toInt() ?: 0
             }
 
-            return User(
+            val u = User(
                 id = data["id"] as? String ?: uid,
                 firstName = data["firstName"] as? String ?: "",
                 lastName = data["lastName"] as? String ?: "",
@@ -196,10 +224,12 @@ object FirebaseAuthManager {
                 bio = data["bio"] as? String ?: "",
                 shareContactByEmail = data["shareContactByEmail"] as? Boolean ?: true
             )
+            if (uid == firebaseUser?.uid) cachedUser = u
+            return u
         } catch (e: Exception) {
             Log.e(TAG, "Get profile failed for $uid", e)
             val firebaseUser = auth.currentUser
-            return User(
+            val fallback = User(
                 id = uid,
                 firstName = firebaseUser?.displayName?.split(" ")?.getOrNull(0) ?: "Book",
                 lastName = firebaseUser?.displayName?.split(" ")?.drop(1)?.joinToString(" ") ?: "Reader",
@@ -214,6 +244,8 @@ object FirebaseAuthManager {
                 favoritesCount = 0,
                 bio = "Book lover and exchange enthusiast 📚"
             )
+            if (uid == firebaseUser?.uid) cachedUser = fallback
+            return fallback
         }
     }
 
@@ -242,6 +274,8 @@ object FirebaseAuthManager {
                 val display = listOfNotNull(first, last).joinToString(" ")
                 user?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(display).build())?.await()
             }
+            // Update cached profile
+            cachedUser = getUserProfile(uid, forceRefresh = true)
             Log.d(TAG, "Profile update success")
         } catch (e: Exception) {
             Log.e(TAG, "Update profile failed", e)
