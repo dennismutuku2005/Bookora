@@ -158,9 +158,15 @@ fun BookDetailsScreen(
                             Button(
                                 onClick = {
                                     vm.claimBook(
-                                        onSuccess = { claim ->
+                                        onSuccess = { claim, convoId ->
                                             scope.launch {
-                                                snackbarHostState.showSnackbar("Request sent to owner! Check your alerts.")
+                                                val result = snackbarHostState.showSnackbar(
+                                                    message = "Request sent! Private chat opened.",
+                                                    actionLabel = "Open Chat"
+                                                )
+                                                if (result == SnackbarResult.ActionPerformed) {
+                                                    onOpenChat(convoId)
+                                                }
                                             }
                                         },
                                         onError = { err ->
