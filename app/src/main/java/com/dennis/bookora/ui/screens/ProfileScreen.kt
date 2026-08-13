@@ -380,7 +380,16 @@ fun ProfileScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 favorites.forEach { book ->
-                    com.dennis.bookora.ui.components.CleanBookCard(book, onBookClick = { onFavoritesClick() })
+                    com.dennis.bookora.ui.components.CleanBookCard(book, onBookClick = { onFavoritesClick() }, onFavorite = { id ->
+                        // unfavorite then reload favorites
+                        scope.launch {
+                            try {
+                                val repo = com.dennis.bookora.repository.FirebaseBookRepository()
+                                repo.toggleFavorite(id)
+                                favorites = repo.getFavorites()
+                            } catch (_: Exception) {}
+                        }
+                    })
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
