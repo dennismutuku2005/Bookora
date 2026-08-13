@@ -54,6 +54,8 @@ object FirebaseAuthManager {
             user?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName("$firstName $lastName").build())?.await()
 
             val uid = user?.uid ?: return false
+            // simple in-memory cache for user profiles during app runtime
+            private val userCache = mutableMapOf<String, com.dennis.bookora.models.User>()
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val userDoc = mapOf(
                 "id" to uid,
@@ -165,6 +167,18 @@ object FirebaseAuthManager {
                 val last = parts.drop(1).joinToString(" ").ifBlank { "Reader" }
                 val defaultUsername = firebaseUser?.email?.substringBefore("@") ?: "reader"
                 val fallbackUserDoc = mapOf(
+                    // update cache
+                    val cached = userCache[uid]
+                    if (cached != null) {
+                        val merged = cached.copy(
+                            firstName = updates["firstName"] as? String ?: cached.firstName,
+                            lastName = updates["lastName"] as? String ?: cached.lastName,
+                            username = updates["username"] as? String ?: cached.username,
+                            phone = updates["phone"] as? String ?: cached.phone,
+                            bio = updates["bio"] as? String ?: cached.bio
+                        )
+                        userCache[uid] = merged
+                    }
                     "id" to uid,
                     "firstName" to first,
                     "lastName" to last,
@@ -173,6 +187,10 @@ object FirebaseAuthManager {
                     "phone" to (firebaseUser?.phoneNumber ?: ""),
                     "avatarUrl" to (firebaseUser?.photoUrl?.toString() ?: ""),
                     "memberSince" to SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+
+            fun clearUserCache(uid: String? = null) {
+                if (uid == null) userCache.clear() else userCache.remove(uid)
+            }
                     "rating" to 0.0,
                     "booksPosted" to 0,
                     "booksShared" to 0,
