@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dennis.bookora.BuildConfig
 import com.dennis.bookora.models.User
+import com.dennis.bookora.models.Book
 import com.dennis.bookora.repository.auth.FirebaseAuthManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,6 +71,7 @@ fun ProfileScreen(
     var avatarUrl by rememberSaveable { mutableStateOf(initialCachedUser?.avatarUrl ?: "") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var shareContactByEmail by remember { mutableStateOf(initialCachedUser?.shareContactByEmail ?: true) }
+    var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -118,6 +120,15 @@ fun ProfileScreen(
         } finally {
             isLoading = false
         }
+    }
+
+    // load favorites when profile available
+    LaunchedEffect(currentUser?.id) {
+        val uid = currentUser?.id ?: return@LaunchedEffect
+        try {
+            val repo = com.dennis.bookora.repository.FirebaseBookRepository()
+            favorites = repo.getFavorites()
+        } catch (_: Exception) {}
     }
 
     LaunchedEffect(username, isEditing) {
@@ -359,6 +370,21 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+            // Favorites preview
+            if (favorites.isNotEmpty()) {
+                Text(
+                    "Favorites",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                favorites.forEach { book ->
+                    com.dennis.bookora.ui.components.CleanBookCard(book, onBookClick = { onFavoritesClick() })
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 1.dp)
             Spacer(modifier = Modifier.height(20.dp))
 
