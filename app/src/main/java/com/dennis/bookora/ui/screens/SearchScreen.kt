@@ -10,8 +10,6 @@ import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dennis.bookora.ui.viewmodels.BooksViewModel
 import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.graphics.Color
-import com.dennis.bookora.models.BookItem
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.dennis.bookora.ui.components.CleanBookCard
@@ -36,8 +34,7 @@ fun SearchScreen(onBookClick: (String) -> Unit, vm: BooksViewModel = hiltViewMod
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val results = if (query.isBlank()) books else books.filter { it.title.contains(query, true) || it.author.contains(query, true) }
             items(results) { book ->
-                val item = BookItem(book.id, book.title, book.author, book.category, book.ownerId, book.postedDate, 0, Color(0xFFF8F9FA))
-                CleanBookCard(item, onBookClick)
+                CleanBookCard(book, onBookClick)
             }
         }
     }
