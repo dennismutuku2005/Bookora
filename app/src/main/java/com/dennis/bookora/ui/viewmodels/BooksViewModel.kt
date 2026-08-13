@@ -30,8 +30,19 @@ class BooksViewModel @Inject constructor(
         viewModelScope.launch {
             isLoading.value = true
             try {
-                books.value = repo.getBooks()
-                featured.value = repo.getFeaturedBooks()
+                val fetched = repo.getBooks()
+                // enrich owner usernames when missing
+                val enriched = fetched.map { b ->
+                    if (b.ownerUsername.isBlank() && b.ownerId.isNotBlank()) {
+                        try {
+                            val profile = repo.getUserProfile(b.ownerId)
+                            if (profile != null) b.copy(ownerUsername = profile.username) else b
+                        } catch (_: Exception) { b }
+                    } else b
+                }
+                books.value = enriched
+                val fetchedFeatured = repo.getFeaturedBooks()
+                featured.value = fetchedFeatured
             } catch (_: Exception) {
             } finally {
                 isLoading.value = false
