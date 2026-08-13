@@ -4,7 +4,6 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.LaunchedEffect
 import com.dennis.bookora.repository.auth.FirebaseAuthManager
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -22,7 +21,6 @@ fun BookoraNavGraph(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Ensure Firebase is initialized and choose start destination based on current user
     FirebaseAuthManager.ensureInitialized(context)
     val startDestination = if (FirebaseAuthManager.currentUser() != null) BookoraDestinations.Main else BookoraDestinations.Welcome
 
@@ -93,7 +91,33 @@ fun BookoraNavGraph(
                 },
                 onNotificationClick = { notificationId ->
                     navController.navigate(BookoraDestinations.notificationDetails(notificationId))
+                },
+                onMyListingsClick = {
+                    navController.navigate(BookoraDestinations.MyListings)
+                },
+                onChatClick = { conversationId ->
+                    navController.navigate(BookoraDestinations.chat(conversationId))
                 }
+            )
+        }
+
+        composable(BookoraDestinations.MyListings) {
+            MyListingsScreen(
+                onBack = { navController.popBackStack() },
+                onEditClick = { bookId -> navController.navigate(BookoraDestinations.editListing(bookId)) },
+                onBookClick = { bookId -> navController.navigate(BookoraDestinations.bookDetails(bookId)) }
+            )
+        }
+
+        composable(
+            route = BookoraDestinations.EditListingPattern,
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            CreateListingScreen(
+                bookId = bookId,
+                onBack = { navController.popBackStack() },
+                onSuccess = { navController.popBackStack() }
             )
         }
 
@@ -104,7 +128,10 @@ fun BookoraNavGraph(
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             BookDetailsScreen(
                 bookId = bookId,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenChat = { conversationId ->
+                    navController.navigate(BookoraDestinations.chat(conversationId))
+                }
             )
         }
 
@@ -115,6 +142,20 @@ fun BookoraNavGraph(
             val notificationId = backStackEntry.arguments?.getString("notificationId") ?: ""
             NotificationDetailScreen(
                 notificationId = notificationId,
+                onBack = { navController.popBackStack() },
+                onOpenChat = { conversationId ->
+                    navController.navigate(BookoraDestinations.chat(conversationId))
+                }
+            )
+        }
+
+        composable(
+            route = BookoraDestinations.ChatPattern,
+            arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            ChatScreen(
+                conversationId = conversationId,
                 onBack = { navController.popBackStack() }
             )
         }
