@@ -31,21 +31,50 @@ class BooksViewModel @Inject constructor(
             isLoading.value = true
             try {
                 val fetched = repo.getBooks()
-                // enrich owner usernames when missing
+                // get user's favorites
+                val favs = try { repo.getFavorites() } catch (_: Exception) { emptyList() }
+                val favIds = favs.map { it.id }.toSet()
+
+                // enrich owner usernames when missing and mark favorites
                 val enriched = fetched.map { b ->
-                    if (b.ownerUsername.isBlank() && b.ownerId.isNotBlank()) {
+                    val withOwner = if (b.ownerUsername.isBlank() && b.ownerId.isNotBlank()) {
                         try {
                             val profile = repo.getUserProfile(b.ownerId)
                             if (profile != null) b.copy(ownerUsername = profile.username) else b
                         } catch (_: Exception) { b }
                     } else b
+                    if (favIds.contains(withOwner.id)) withOwner.copy(isFavorite = true) else withOwner.copy(isFavorite = false)
                 }
                 books.value = enriched
                 val fetchedFeatured = repo.getFeaturedBooks()
-                featured.value = fetchedFeatured
+                featured.value = fetchedFeatured.map { it.copy(isFavorite = favIds.contains(it.id)) }
             } catch (_: Exception) {
             } finally {
                 isLoading.value = false
+            }
+        }
+    }
+
+    fun toggleFavorite(bookId: String) {
+        viewModelScope.launch {
+            // determine current state
+            val inBooks = books.value.firstOrNull { it.id == bookId }
+            val wasFav = inBooks?.isFavorite ?: featured.value.firstOrNull { it.id == bookId }?.isFavorite ?: false
+            // optimistic UI
+            books.value = books.value.map { if (it.id == bookId) it.copy(isFavorite = !it.isFavorite) else it }
+            featured.value = featured.value.map { if (it.id == bookId) it.copy(isFavorite = !it.isFavorite) else it }
+
+            try {
+                repo.toggleFavorite(bookId)
+                // refresh favorites from backend to ensure consistency
+                val favs = try { repo.getFavorites() } catch (_: Exception) { emptyList() }
+                val favIds = favs.map { it.id }.toSet()
+                books.value = books.value.map { it.copy(isFavorite = favIds.contains(it.id)) }
+                featured.value = featured.value.map { it.copy(isFavorite = favIds.contains(it.id)) }
+            } catch (_: Exception) {
+                // revert optimistic change on failure
+                books.value = books.value.map { if (it.id == bookId) it.copy(isFavorite = wasFav) else it }
+                featured.value = featured.value.map { if (it.id == bookId) it.copy(isFavorite = wasFav) else it }
             }
         }
     }
