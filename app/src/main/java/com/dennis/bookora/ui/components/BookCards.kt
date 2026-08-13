@@ -1,34 +1,32 @@
 package com.dennis.bookora.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.dennis.bookora.R
-import com.dennis.bookora.models.BookItem
+import coil.compose.AsyncImage
+import com.dennis.bookora.models.Book
+import com.dennis.bookora.models.ListingType
 
 @Composable
-fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
+fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
     Card(
         modifier = Modifier
-            .width(170.dp)
+            .width(160.dp)
             .clickable { onBookClick(book.id) },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -39,20 +37,16 @@ fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp)
+                    .height(200.dp)
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(book.color.copy(alpha = 0.7f), book.color)
-                        )
-                    ),
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
+                AsyncImage(
+                    model = book.coverUrl,
                     contentDescription = null,
-                    modifier = Modifier.size(70.dp),
-                    alpha = 0.4f
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
                 
                 Surface(
@@ -63,7 +57,7 @@ fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 ) {
                     Text(
-                        text = book.type,
+                        text = book.listingType.name.lowercase().capitalize(),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -75,7 +69,7 @@ fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -88,49 +82,46 @@ fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically, 
-                    horizontalArrangement = Arrangement.SpaceBetween, 
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = book.username.take(1).uppercase(),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (book.ownerUsername.isNotBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(11.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            text = book.username,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = "@${book.ownerUsername}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            "${book.views} views",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, 
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Rounded.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = book.location.ifBlank { "Nairobi, KE" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
@@ -138,7 +129,7 @@ fun VerticalBookCard(book: BookItem, onBookClick: (String) -> Unit) {
 }
 
 @Composable
-fun CleanBookCard(book: BookItem, onBookClick: (String) -> Unit) {
+fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -149,21 +140,16 @@ fun CleanBookCard(book: BookItem, onBookClick: (String) -> Unit) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
+            AsyncImage(
+                model = book.coverUrl,
+                contentDescription = null,
                 modifier = Modifier
                     .width(76.dp)
                     .height(112.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(book.color.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(50.dp),
-                    alpha = 0.4f
-                )
-            }
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentScale = ContentScale.Crop
+            )
             
             Spacer(modifier = Modifier.width(16.dp))
             
@@ -174,28 +160,43 @@ fun CleanBookCard(book: BookItem, onBookClick: (String) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = book.username,
+                        text = book.category.ifBlank { "General" },
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = book.timeAgo,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (book.ownerUsername.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Rounded.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "@${book.ownerUsername}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
                 
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = book.author,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -207,38 +208,30 @@ fun CleanBookCard(book: BookItem, onBookClick: (String) -> Unit) {
                 ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if(book.type == "Giveaway") Color(0xFFE8F5E9) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        color = if (book.listingType == ListingType.GIVEAWAY) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                     ) {
                         Text(
-                            text = book.type,
+                            text = book.listingType.name,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = if(book.type == "Giveaway") Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                            color = if (book.listingType == ListingType.GIVEAWAY) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Filled.Visibility,
-                                contentDescription = "Views",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                "${book.views} views",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = book.location.ifBlank { "Nairobi, KE" },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
