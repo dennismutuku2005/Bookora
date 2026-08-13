@@ -38,6 +38,7 @@ fun RegisterScreen(
 ) {
     val firstName = remember { mutableStateOf("") }
     val lastName = remember { mutableStateOf("") }
+    val username = remember { mutableStateOf("") }
     val email = remember { mutableStateOf("") }
     val phone = remember { mutableStateOf("") }
     val password = remember { mutableStateOf("") }
@@ -47,6 +48,7 @@ fun RegisterScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isLoading = remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -115,6 +117,18 @@ fun RegisterScreen(
                     )
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = username.value,
+                onValueChange = { username.value = it },
+                label = { Text("Username") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                )
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -206,20 +220,25 @@ fun RegisterScreen(
                             snackbarHostState.showSnackbar("Passwords do not match")
                             return@launch
                         }
+                        isLoading.value = true
                         try {
                             val ok = FirebaseAuthManager.register(
                                 email = email.value,
                                 password = password.value,
                                 firstName = firstName.value,
                                 lastName = lastName.value,
-                                phone = phone.value
+                                phone = phone.value,
+                                username = username.value
                             )
                             if (ok) onRegisterSuccess() else snackbarHostState.showSnackbar("Registration failed")
                         } catch (e: Exception) {
                             snackbarHostState.showSnackbar(e.message ?: "Registration error")
+                        } finally {
+                            isLoading.value = false
                         }
                     }
                 },
+                enabled = !isLoading.value,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -229,10 +248,18 @@ fun RegisterScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Text(
-                    text = "Create Account",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                if (isLoading.value) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
                     )
+                } else {
+                    Text(
+                        text = "Create Account",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
