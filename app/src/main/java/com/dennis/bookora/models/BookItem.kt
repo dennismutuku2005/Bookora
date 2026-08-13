@@ -10,5 +10,6 @@ data class BookItem(
     val username: String,
     val timeAgo: String,
     val views: Int,
-    val color: Color
+    val color: Color,
+    val coverUrl: String = ""
 )
