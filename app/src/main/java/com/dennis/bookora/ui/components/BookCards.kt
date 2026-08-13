@@ -1,6 +1,7 @@
 package com.dennis.bookora.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,14 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.dennis.bookora.R
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ListingType
-
-import coil.compose.AsyncImage
 @Composable
 fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
     Card(
@@ -43,9 +44,6 @@ fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = book.coverUrl,
-                    contentDescription = null,
                 if (book.coverUrl.isNotBlank()) {
                     AsyncImage(
                         model = book.coverUrl,
@@ -61,6 +59,9 @@ fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
                         alpha = 0.4f
                     )
                 }
+            }
+
+            Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleSmall,
@@ -134,9 +135,6 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = book.coverUrl,
-                contentDescription = null,
             if (book.coverUrl.isNotBlank()) {
                 AsyncImage(
                     model = book.coverUrl,
@@ -160,6 +158,7 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
                     alpha = 0.4f
                 )
             }
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
