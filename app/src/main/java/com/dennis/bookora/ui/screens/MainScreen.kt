@@ -32,6 +32,7 @@ fun MainScreen(
     onTermsClick: () -> Unit = {},
     onNotificationClick: (String) -> Unit = {},
     onMyListingsClick: () -> Unit = {},
+    onFavoritesClick: () -> Unit = {},
     onChatClick: (String) -> Unit = {}
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.Home) }
@@ -108,7 +109,8 @@ fun MainScreen(
                     onLogout = { showLogoutDialog = true },
                     onPrivacyClick = onPrivacyClick,
                     onTermsClick = onTermsClick,
-                    onMyListingsClick = onMyListingsClick
+                    onMyListingsClick = onMyListingsClick,
+                    onFavoritesClick = onFavoritesClick
                 )
             }
         }
