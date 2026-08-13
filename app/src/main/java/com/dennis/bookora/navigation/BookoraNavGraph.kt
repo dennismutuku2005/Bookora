@@ -97,6 +97,18 @@ fun BookoraNavGraph(
                 },
                 onChatClick = { conversationId ->
                     navController.navigate(BookoraDestinations.chat(conversationId))
+                },
+                onFavoritesClick = {
+                    navController.navigate(BookoraDestinations.Favorites)
+                }
+            )
+        }
+
+        composable(BookoraDestinations.Favorites) {
+            FavoritesScreen(
+                onBack = { navController.popBackStack() },
+                onBookClick = { bookId ->
+                    navController.navigate(BookoraDestinations.bookDetails(bookId))
                 }
             )
         }
