@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
@@ -24,8 +26,9 @@ import coil.compose.AsyncImage
 import com.dennis.bookora.R
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ListingType
+
 @Composable
-fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
+fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit, onFavorite: (String) -> Unit = {}) {
     Card(
         modifier = Modifier
             .width(160.dp)
@@ -58,6 +61,22 @@ fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
                         modifier = Modifier.size(70.dp),
                         alpha = 0.4f
                     )
+                }
+                
+                // Favorite icon overlay
+                IconButton(
+                    onClick = { onFavorite(book.id) },
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    if (book.isFavorite) {
+                        Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.Red)
+                    } else {
+                        Icon(
+                            Icons.Outlined.FavoriteBorder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
 
@@ -124,11 +143,10 @@ fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
 }
 
 @Composable
-fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
+fun CleanBookCard(book: Book, onBookClick: (String) -> Unit, onFavorite: (String) -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
             .clickable { onBookClick(book.id) },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -171,6 +189,7 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
+                    
                     val handle = if (book.ownerUsername.isNotBlank()) book.ownerUsername else if (book.ownerId.isNotBlank()) book.ownerId.take(6) else "reader"
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -225,6 +244,22 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
                     }
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Favorite button
+                        IconButton(onClick = { onFavorite(book.id) }, modifier = Modifier.size(24.dp)) {
+                            if (book.isFavorite) {
+                                Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.Red, modifier = Modifier.size(18.dp))
+                            } else {
+                                Icon(
+                                    Icons.Outlined.FavoriteBorder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+
                         Icon(
                             Icons.Rounded.LocationOn,
                             contentDescription = null,
