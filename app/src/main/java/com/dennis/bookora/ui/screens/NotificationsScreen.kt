@@ -26,14 +26,6 @@ fun NotificationsScreen(onNotificationClick: (String) -> Unit = {}) {
     )
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(
-            "Alerts",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
         notifications.forEach { notification ->
             Card(
                 modifier = Modifier
