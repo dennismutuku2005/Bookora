@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -47,7 +48,8 @@ import kotlinx.coroutines.launch
 fun ProfileScreen(
     onLogout: () -> Unit,
     onPrivacyClick: () -> Unit,
-    onTermsClick: () -> Unit
+    onTermsClick: () -> Unit,
+    onMyListingsClick: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -81,20 +83,37 @@ fun ProfileScreen(
             FirebaseAuthManager.ensureInitialized(context)
             val uid = FirebaseAuthManager.currentUser()?.uid
             if (uid != null) {
-                val profile = FirebaseAuthManager.getUserProfile(uid)
-                currentUser = profile
-                if (profile != null) {
-                    firstName = profile.firstName
-                    lastName = profile.lastName
-                    username = profile.username
-                    phone = profile.phone
-                    bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast 📚" }
-                    avatarUrl = profile.avatarUrl
-                    shareContactByEmail = profile.shareContactByEmail
+                val profile = kotlinx.coroutines.withTimeoutOrNull(4000L) {
+                    FirebaseAuthManager.getUserProfile(uid)
+                } ?: run {
+                    val fbUser = FirebaseAuthManager.currentUser()
+                    val names = fbUser?.displayName?.split(" ") ?: emptyList()
+                    User(
+                        id = uid,
+                        firstName = names.getOrNull(0) ?: "Book",
+                        lastName = names.drop(1).joinToString(" ").ifBlank { "Reader" },
+                        username = fbUser?.email?.substringBefore("@") ?: "reader",
+                        email = fbUser?.email ?: "",
+                        phone = "",
+                        avatarUrl = fbUser?.photoUrl?.toString() ?: "",
+                        memberSince = "",
+                        rating = 0.0,
+                        booksPosted = 0,
+                        booksShared = 0,
+                        favoritesCount = 0,
+                        bio = "Book lover and exchange enthusiast 📚"
+                    )
                 }
+                currentUser = profile
+                firstName = profile.firstName
+                lastName = profile.lastName
+                username = profile.username
+                phone = profile.phone
+                bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast 📚" }
+                avatarUrl = profile.avatarUrl
+                shareContactByEmail = profile.shareContactByEmail
             }
-        } catch (e: Exception) {
-            // Handle error
+        } catch (_: Exception) {
         } finally {
             isLoading = false
         }
@@ -359,7 +378,11 @@ fun ProfileScreen(
                     modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                 )
 
-                SettingsMenuItem(icon = Icons.Outlined.Book, title = "My Listings")
+                SettingsMenuItem(
+                    icon = Icons.Outlined.Book,
+                    title = "My Listings",
+                    onClick = onMyListingsClick
+                )
 
                 SettingsMenuItem(
                     icon = Icons.Outlined.Share,
@@ -621,7 +644,7 @@ private fun SettingsMenuItem(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = androidx.compose.ui.graphics.Color.Transparent
+        color = Color.Transparent
     ) {
         Row(
             modifier = Modifier
