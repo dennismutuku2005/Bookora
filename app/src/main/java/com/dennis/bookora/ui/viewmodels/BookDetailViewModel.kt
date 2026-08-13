@@ -58,8 +58,16 @@ class BookDetailViewModel @Inject constructor(
                     error.value = "Book not found."
                 } else {
                     isOwner.value = (currentUid != null && currentUid == b.ownerId)
+                    // Stop screen loading immediately as soon as book is fetched!
+                    isLoading.value = false
+
+                    // Fetch owner profile asynchronously in background so UI is instant
                     if (b.ownerId.isNotBlank()) {
-                        ownerUser.value = repo.getUserProfile(b.ownerId)
+                        launch {
+                            try {
+                                ownerUser.value = repo.getUserProfile(b.ownerId)
+                            } catch (_: Exception) {}
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -70,14 +78,29 @@ class BookDetailViewModel @Inject constructor(
         }
     }
 
-    fun claimBook(onSuccess: (ClaimRequest) -> Unit, onError: (String) -> Unit) {
+    fun claimBook(onSuccess: (ClaimRequest, String) -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             val b = book.value ?: return@launch
             isClaiming.value = true
             try {
                 val request = repo.claimBook(b.id, b.title, b.ownerId)
                 claimState.value = request
-                onSuccess(request)
+
+                // Auto-create/open private chat and post introduction message
+                val owner = ownerUser.value
+                val ownerName = owner?.fullName?.ifBlank { owner.username } ?: b.ownerUsername.ifBlank { "Owner" }
+                val conversationId = repo.getOrCreateConversation(
+                    bookId = b.id,
+                    bookTitle = b.title,
+                    otherUserId = b.ownerId,
+                    otherUserName = ownerName
+                )
+                repo.sendMessage(
+                    conversationId = conversationId,
+                    text = "👋 Hi! I submitted a claim request for \"${b.title}\". Let's connect for pickup!"
+                )
+
+                onSuccess(request, conversationId)
             } catch (e: Exception) {
                 onError(e.message ?: "Claim request failed")
             } finally {
@@ -90,7 +113,7 @@ class BookDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val b = book.value ?: return@launch
             val owner = ownerUser.value
-            val ownerName = owner?.fullName?.ifBlank { owner.username } ?: "Owner"
+            val ownerName = owner?.fullName?.ifBlank { owner.username } ?: b.ownerUsername.ifBlank { "Owner" }
             try {
                 val conversationId = repo.getOrCreateConversation(
                     bookId = b.id,
