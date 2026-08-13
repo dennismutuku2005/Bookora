@@ -49,14 +49,13 @@ object FirebaseAuthManager {
             val user = auth.currentUser
             user?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName("$firstName $lastName").build())?.await()
 
-            // Save profile to Firestore
             val uid = user?.uid ?: return false
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val userDoc = mapOf(
                 "id" to uid,
                 "firstName" to firstName,
                 "lastName" to lastName,
-                "username" to username,
+                "username" to username.ifBlank { email.substringBefore("@") },
                 "email" to email,
                 "phone" to phone,
                 "avatarUrl" to "",
@@ -65,7 +64,7 @@ object FirebaseAuthManager {
                 "booksPosted" to 0,
                 "booksShared" to 0,
                 "favoritesCount" to 0,
-                "bio" to "",
+                "bio" to "Book lover and exchange enthusiast 📚",
                 "shareContactByEmail" to true
             )
             firestore.collection("users").document(uid).set(userDoc).await()
@@ -90,7 +89,6 @@ object FirebaseAuthManager {
         try {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
             val result = auth.signInWithCredential(credential).await()
-            // Ensure profile exists in Firestore
             val uid = result.user?.uid ?: return false
             val doc = firestore.collection("users").document(uid).get().await()
             if (!doc.exists()) {
@@ -102,7 +100,7 @@ object FirebaseAuthManager {
                     "id" to uid,
                     "firstName" to first,
                     "lastName" to last,
-                    "username" to "",
+                    "username" to (result.user?.email?.substringBefore("@") ?: "reader"),
                     "email" to (result.user?.email ?: ""),
                     "phone" to "",
                     "avatarUrl" to (result.user?.photoUrl?.toString() ?: ""),
@@ -111,7 +109,7 @@ object FirebaseAuthManager {
                     "booksPosted" to 0,
                     "booksShared" to 0,
                     "favoritesCount" to 0,
-                    "bio" to "",
+                    "bio" to "Book lover and exchange enthusiast 📚",
                     "shareContactByEmail" to true
                 )
                 firestore.collection("users").document(uid).set(userDoc).await()
@@ -131,9 +129,57 @@ object FirebaseAuthManager {
 
     suspend fun getUserProfile(uid: String): User? {
         try {
+            val firebaseUser = auth.currentUser
             val doc = firestore.collection("users").document(uid).get().await()
-            if (!doc.exists()) return null
+            if (!doc.exists()) {
+                // Create user doc if missing
+                val displayName = firebaseUser?.displayName ?: ""
+                val parts = displayName.split(" ")
+                val first = parts.getOrNull(0)?.ifBlank { "Book" } ?: "Book"
+                val last = parts.drop(1).joinToString(" ").ifBlank { "Reader" }
+                val defaultUsername = firebaseUser?.email?.substringBefore("@") ?: "reader"
+                val fallbackUserDoc = mapOf(
+                    "id" to uid,
+                    "firstName" to first,
+                    "lastName" to last,
+                    "username" to defaultUsername,
+                    "email" to (firebaseUser?.email ?: ""),
+                    "phone" to (firebaseUser?.phoneNumber ?: ""),
+                    "avatarUrl" to (firebaseUser?.photoUrl?.toString() ?: ""),
+                    "memberSince" to SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+                    "rating" to 0.0,
+                    "booksPosted" to 0,
+                    "booksShared" to 0,
+                    "favoritesCount" to 0,
+                    "bio" to "Book lover and exchange enthusiast 📚",
+                    "shareContactByEmail" to true
+                )
+                try { firestore.collection("users").document(uid).set(fallbackUserDoc).await() } catch (_: Exception) {}
+                return User(
+                    id = uid,
+                    firstName = first,
+                    lastName = last,
+                    username = defaultUsername,
+                    email = firebaseUser?.email ?: "",
+                    phone = firebaseUser?.phoneNumber ?: "",
+                    avatarUrl = firebaseUser?.photoUrl?.toString() ?: "",
+                    memberSince = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+                    rating = 0.0,
+                    booksPosted = 0,
+                    booksShared = 0,
+                    favoritesCount = 0,
+                    bio = "Book lover and exchange enthusiast 📚",
+                    shareContactByEmail = true
+                )
+            }
             val data = doc.data ?: return null
+
+            val booksCount = try {
+                firestore.collection("books").whereEqualTo("ownerId", uid).get().await().size()
+            } catch (_: Exception) {
+                (data["booksPosted"] as? Number)?.toInt() ?: 0
+            }
+
             return User(
                 id = data["id"] as? String ?: uid,
                 firstName = data["firstName"] as? String ?: "",
@@ -144,7 +190,7 @@ object FirebaseAuthManager {
                 avatarUrl = data["avatarUrl"] as? String ?: "",
                 memberSince = data["memberSince"] as? String ?: "",
                 rating = (data["rating"] as? Number)?.toDouble() ?: 0.0,
-                booksPosted = (data["booksPosted"] as? Number)?.toInt() ?: 0,
+                booksPosted = booksCount,
                 booksShared = (data["booksShared"] as? Number)?.toInt() ?: 0,
                 favoritesCount = (data["favoritesCount"] as? Number)?.toInt() ?: 0,
                 bio = data["bio"] as? String ?: "",
@@ -152,7 +198,22 @@ object FirebaseAuthManager {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Get profile failed for $uid", e)
-            return null
+            val firebaseUser = auth.currentUser
+            return User(
+                id = uid,
+                firstName = firebaseUser?.displayName?.split(" ")?.getOrNull(0) ?: "Book",
+                lastName = firebaseUser?.displayName?.split(" ")?.drop(1)?.joinToString(" ") ?: "Reader",
+                username = firebaseUser?.email?.substringBefore("@") ?: "reader",
+                email = firebaseUser?.email ?: "",
+                phone = "",
+                avatarUrl = firebaseUser?.photoUrl?.toString() ?: "",
+                memberSince = "",
+                rating = 0.0,
+                booksPosted = 0,
+                booksShared = 0,
+                favoritesCount = 0,
+                bio = "Book lover and exchange enthusiast 📚"
+            )
         }
     }
 
@@ -174,7 +235,6 @@ object FirebaseAuthManager {
         try {
             Log.d(TAG, "Updating profile for $uid: $updates")
             firestore.collection("users").document(uid).set(updates, SetOptions.merge()).await()
-            // Update firebase auth display name if name changed
             val user = auth.currentUser
             val first = updates["firstName"] as? String
             val last = updates["lastName"] as? String
