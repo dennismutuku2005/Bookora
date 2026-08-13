@@ -15,8 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import com.google.firebase.FirebaseApp
@@ -37,22 +35,70 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateListingScreen() {
+fun CreateListingScreen(
+    bookId: String? = null,
+    onBack: (() -> Unit)? = null,
+    onSuccess: (() -> Unit)? = null
+) {
     var title by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Fiction") }
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var isExchange by remember { mutableStateOf(true) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var existingCoverUrl by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isPublishing by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(bookId != null) }
+    var condition by remember { mutableStateOf("Like New") }
+    var categoryExpanded by remember { mutableStateOf(false) }
+
+    val categoriesList = listOf("Fiction", "Non-Fiction", "Self-Help", "Technology", "Science", "History", "Biography", "Children", "Romance", "Other")
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> selectedImageUri = uri }
     )
+
+    LaunchedEffect(bookId) {
+        if (bookId != null) {
+            try {
+                val db = Firebase.firestore
+                val doc = db.collection("books").document(bookId).get().await()
+                if (doc.exists()) {
+                    title = doc.getString("title") ?: ""
+                    author = doc.getString("author") ?: ""
+                    category = doc.getString("category") ?: "Fiction"
+                    description = doc.getString("description") ?: ""
+                    location = doc.getString("location") ?: ""
+                    isExchange = (doc.getString("listingType") ?: "EXCHANGE") == "EXCHANGE"
+                    existingCoverUrl = doc.getString("coverUrl") ?: ""
+                    val conditionStr = doc.getString("condition") ?: "GOOD"
+                    condition = when(conditionStr) {
+                        "LIKE_NEW" -> "Like New"
+                        "GOOD" -> "Good"
+                        "FAIR" -> "Fair"
+                        else -> "Used"
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to load book: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -60,8 +106,13 @@ fun CreateListingScreen() {
             .padding(20.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        if (onBack != null) {
+            IconButton(onClick = onBack, modifier = Modifier.padding(bottom = 8.dp)) {
+                Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+            }
+        }
         Text(
-            text = "List a New Book",
+            text = if (bookId == null) "List a New Book" else "Edit Listing",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -88,9 +139,9 @@ fun CreateListingScreen() {
                 },
             contentAlignment = Alignment.Center
         ) {
-            if (selectedImageUri != null) {
+            if (selectedImageUri != null || existingCoverUrl.isNotEmpty()) {
                 AsyncImage(
-                    model = selectedImageUri,
+                    model = selectedImageUri ?: existingCoverUrl,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -169,7 +220,42 @@ fun CreateListingScreen() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        var condition by remember { mutableStateOf("Like New") }
+        // Category Dropdown
+        ExposedDropdownMenuBox(
+            expanded = categoryExpanded,
+            onExpandedChange = { categoryExpanded = !categoryExpanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = category,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Category") },
+                leadingIcon = { Icon(Icons.Rounded.Category, null, tint = MaterialTheme.colorScheme.primary) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = categoryExpanded,
+                onDismissRequest = { categoryExpanded = false }
+            ) {
+                categoriesList.forEach { cat ->
+                    DropdownMenuItem(
+                        text = { Text(cat) },
+                        onClick = {
+                            category = cat
+                            categoryExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         val conditions = listOf("Like New", "Good", "Fair", "Used")
 
         Text(
@@ -217,12 +303,7 @@ fun CreateListingScreen() {
             placeholder = { Text("e.g. Westlands, Nairobi") },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            leadingIcon = { Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary) },
-            trailingIcon = {
-                IconButton(onClick = { /* Open map logic */ }) {
-                    Icon(Icons.Rounded.Map, "Select on Map", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
+            leadingIcon = { Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary) }
         )
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -273,7 +354,7 @@ fun CreateListingScreen() {
                         }
 
                         val storage = Firebase.storage
-                        var coverUrl = ""
+                        var coverUrl = existingCoverUrl
                         if (selectedImageUri != null) {
                             val ref = storage.reference.child("books/$uid/${System.currentTimeMillis()}.jpg")
                             context.contentResolver.openInputStream(selectedImageUri!!).use { stream ->
@@ -294,26 +375,43 @@ fun CreateListingScreen() {
                         }
                         val listingType = if (isExchange) "EXCHANGE" else "GIVEAWAY"
 
-                        val bookDoc = mapOf(
+                        // Fetch poster username
+                        val userDoc = firestore.collection("users").document(uid).get().await()
+                        val posterUsername = userDoc.getString("username") ?: ""
+
+                        val bookDoc = mutableMapOf(
                             "title" to title,
                             "author" to author,
+                            "category" to category,
                             "description" to description,
                             "location" to location,
                             "condition" to conditionEnum,
                             "coverUrl" to coverUrl,
                             "listingType" to listingType,
                             "ownerId" to uid,
-                            "postedDate" to sdf.format(Date())
+                            "ownerUsername" to posterUsername,
+                            "postedTimestamp" to System.currentTimeMillis()
                         )
+                        
+                        if (bookId == null) {
+                            bookDoc["postedDate"] = sdf.format(Date())
+                            firestore.collection("books").add(bookDoc).await()
+                        } else {
+                            firestore.collection("books").document(bookId).update(bookDoc as Map<String, Any>).await()
+                        }
 
-                        firestore.collection("books").add(bookDoc).await()
-                        Toast.makeText(context, "Listing published", Toast.LENGTH_SHORT).show()
-                        // reset form
-                        title = ""
-                        author = ""
-                        description = ""
-                        location = ""
-                        selectedImageUri = null
+                        Toast.makeText(context, if (bookId == null) "Listing published" else "Listing updated", Toast.LENGTH_SHORT).show()
+                        
+                        if (bookId == null) {
+                            // reset form
+                            title = ""
+                            author = ""
+                            description = ""
+                            location = ""
+                            selectedImageUri = null
+                        } else {
+                            onSuccess?.invoke()
+                        }
                     } catch (e: Exception) {
                         Toast.makeText(context, e.message ?: "Publish failed", Toast.LENGTH_SHORT).show()
                     } finally {
@@ -328,14 +426,14 @@ fun CreateListingScreen() {
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
             if (isPublishing) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
             } else {
-                Icon(Icons.Rounded.Publish, null)
+                Icon(if (bookId == null) Icons.Rounded.Publish else Icons.Rounded.Save, null)
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Publish Listing", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(if (bookId == null) "Publish Listing" else "Save Changes", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
         
-        Spacer(modifier = Modifier.height(100.dp)) // Extra space for bottom nav
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
