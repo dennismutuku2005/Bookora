@@ -180,11 +180,6 @@ class FirebaseBookRepository @Inject constructor() : BookRepository {
     }
 
     override suspend fun toggleFavorite(bookId: String) {
-    }
-
-    override suspend fun getFavorites(): List<Book> = emptyList()
-
-    override suspend fun toggleFavorite(bookId: String) {
         val uid = currentUid()
         val favRef = firestore.collection("users").document(uid).collection("favorites").document(bookId)
         val existing = favRef.get().await()
