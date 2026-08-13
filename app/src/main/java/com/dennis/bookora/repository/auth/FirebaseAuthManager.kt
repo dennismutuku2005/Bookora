@@ -19,6 +19,7 @@ import java.util.*
 object FirebaseAuthManager {
     private const val TAG = "FirebaseAuthManager"
 
+    private val userCache = mutableMapOf<String, User>()
     private var cachedUser: User? = null
 
     fun ensureInitialized(context: Context) {
@@ -54,8 +55,6 @@ object FirebaseAuthManager {
             user?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName("$firstName $lastName").build())?.await()
 
             val uid = user?.uid ?: return false
-            // simple in-memory cache for user profiles during app runtime
-            private val userCache = mutableMapOf<String, com.dennis.bookora.models.User>()
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val userDoc = mapOf(
                 "id" to uid,
@@ -90,6 +89,7 @@ object FirebaseAuthManager {
                 bio = "Book lover and exchange enthusiast 📚"
             )
             cachedUser = newUser
+            userCache[uid] = newUser
             return result.user != null
         } catch (e: Exception) {
             Log.e(TAG, "Register failed", e)
@@ -101,6 +101,7 @@ object FirebaseAuthManager {
         try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
             cachedUser = null
+            userCache.clear()
             return result.user != null
         } catch (e: Exception) {
             Log.e(TAG, "Login failed", e)
@@ -138,6 +139,7 @@ object FirebaseAuthManager {
                 firestore.collection("users").document(uid).set(userDoc).await()
             }
             cachedUser = null
+            userCache.clear()
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Google sign in failed", e)
@@ -147,14 +149,20 @@ object FirebaseAuthManager {
 
     fun logout() {
         cachedUser = null
+        userCache.clear()
         auth.signOut()
+    }
+
+    fun clearUserCache(uid: String? = null) {
+        if (uid == null) userCache.clear() else userCache.remove(uid)
     }
 
     fun currentUser() = auth.currentUser
 
     suspend fun getUserProfile(uid: String, forceRefresh: Boolean = false): User? {
-        if (!forceRefresh && cachedUser != null && cachedUser?.id == uid) {
-            return cachedUser
+        if (!forceRefresh) {
+            if (cachedUser != null && cachedUser?.id == uid) return cachedUser
+            userCache[uid]?.let { return it }
         }
 
         try {
@@ -167,18 +175,6 @@ object FirebaseAuthManager {
                 val last = parts.drop(1).joinToString(" ").ifBlank { "Reader" }
                 val defaultUsername = firebaseUser?.email?.substringBefore("@") ?: "reader"
                 val fallbackUserDoc = mapOf(
-                    // update cache
-                    val cached = userCache[uid]
-                    if (cached != null) {
-                        val merged = cached.copy(
-                            firstName = updates["firstName"] as? String ?: cached.firstName,
-                            lastName = updates["lastName"] as? String ?: cached.lastName,
-                            username = updates["username"] as? String ?: cached.username,
-                            phone = updates["phone"] as? String ?: cached.phone,
-                            bio = updates["bio"] as? String ?: cached.bio
-                        )
-                        userCache[uid] = merged
-                    }
                     "id" to uid,
                     "firstName" to first,
                     "lastName" to last,
@@ -187,10 +183,6 @@ object FirebaseAuthManager {
                     "phone" to (firebaseUser?.phoneNumber ?: ""),
                     "avatarUrl" to (firebaseUser?.photoUrl?.toString() ?: ""),
                     "memberSince" to SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
-
-            fun clearUserCache(uid: String? = null) {
-                if (uid == null) userCache.clear() else userCache.remove(uid)
-            }
                     "rating" to 0.0,
                     "booksPosted" to 0,
                     "booksShared" to 0,
@@ -215,6 +207,7 @@ object FirebaseAuthManager {
                     bio = "Book lover and exchange enthusiast 📚",
                     shareContactByEmail = true
                 )
+                userCache[uid] = u
                 if (uid == firebaseUser?.uid) cachedUser = u
                 return u
             }
@@ -242,6 +235,7 @@ object FirebaseAuthManager {
                 bio = data["bio"] as? String ?: "",
                 shareContactByEmail = data["shareContactByEmail"] as? Boolean ?: true
             )
+            userCache[uid] = u
             if (uid == firebaseUser?.uid) cachedUser = u
             return u
         } catch (e: Exception) {
@@ -285,6 +279,20 @@ object FirebaseAuthManager {
         try {
             Log.d(TAG, "Updating profile for $uid: $updates")
             firestore.collection("users").document(uid).set(updates, SetOptions.merge()).await()
+            
+            // Update local cache if user exists in it
+            userCache[uid]?.let { cached ->
+                val merged = cached.copy(
+                    firstName = updates["firstName"] as? String ?: cached.firstName,
+                    lastName = updates["lastName"] as? String ?: cached.lastName,
+                    username = updates["username"] as? String ?: cached.username,
+                    phone = updates["phone"] as? String ?: cached.phone,
+                    bio = updates["bio"] as? String ?: cached.bio,
+                    shareContactByEmail = updates["shareContactByEmail"] as? Boolean ?: cached.shareContactByEmail
+                )
+                userCache[uid] = merged
+            }
+
             val user = auth.currentUser
             val first = updates["firstName"] as? String
             val last = updates["lastName"] as? String
