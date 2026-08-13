@@ -23,7 +23,7 @@ object FirebaseAuthManager {
     private val auth get() = FirebaseAuth.getInstance()
     private val firestore by lazy { Firebase.firestore }
 
-    suspend fun register(email: String, password: String, firstName: String, lastName: String, phone: String = ""): Boolean {
+    suspend fun register(email: String, password: String, firstName: String, lastName: String, phone: String = "", username: String = ""): Boolean {
         val result = auth.createUserWithEmailAndPassword(email, password).await()
         val user = auth.currentUser
         user?.updateProfile(UserProfileChangeRequest.Builder().setDisplayName("$firstName $lastName").build())?.await()
@@ -35,6 +35,7 @@ object FirebaseAuthManager {
             "id" to uid,
             "firstName" to firstName,
             "lastName" to lastName,
+            "username" to username,
             "email" to email,
             "phone" to phone,
             "avatarUrl" to "",
@@ -69,6 +70,7 @@ object FirebaseAuthManager {
                 "id" to uid,
                 "firstName" to first,
                 "lastName" to last,
+                "username" to "",
                 "email" to (result.user?.email ?: ""),
                 "phone" to "",
                 "avatarUrl" to (result.user?.photoUrl?.toString() ?: ""),
@@ -98,6 +100,7 @@ object FirebaseAuthManager {
             id = data["id"] as? String ?: uid,
             firstName = data["firstName"] as? String ?: "",
             lastName = data["lastName"] as? String ?: "",
+            username = data["username"] as? String ?: "",
             email = data["email"] as? String ?: "",
             phone = data["phone"] as? String ?: "",
             avatarUrl = data["avatarUrl"] as? String ?: "",
@@ -108,6 +111,15 @@ object FirebaseAuthManager {
             favoritesCount = (data["favoritesCount"] as? Number)?.toInt() ?: 0,
             bio = data["bio"] as? String ?: ""
         )
+    }
+
+    suspend fun isUsernameAvailable(username: String, excludeUid: String? = null): Boolean {
+        if (username.isBlank()) return true
+        val query = firestore.collection("users").whereEqualTo("username", username).get().await()
+        val docs = query.documents
+        if (docs.isEmpty()) return true
+        if (excludeUid != null && docs.size == 1 && docs[0].getString("id") == excludeUid) return true
+        return false
     }
 
     suspend fun updateUserProfile(uid: String, updates: Map<String, Any>) {
