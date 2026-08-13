@@ -165,21 +165,20 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    if (book.ownerUsername.isNotBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Rounded.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "@${book.ownerUsername}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                    val handle = if (book.ownerUsername.isNotBlank()) book.ownerUsername else if (book.ownerId.isNotBlank()) book.ownerId.take(6) else "reader"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = "@$handle",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
                 
