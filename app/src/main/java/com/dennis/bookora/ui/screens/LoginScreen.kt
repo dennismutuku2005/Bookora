@@ -41,6 +41,7 @@ fun LoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val isLoading = remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -138,6 +139,7 @@ fun LoginScreen(
                 onClick = {
                     scope.launch {
                         FirebaseAuthManager.ensureInitialized(context)
+                        isLoading.value = true
                         try {
                             val ok = FirebaseAuthManager.login(email.value, password.value)
                             if (ok) {
@@ -153,9 +155,12 @@ fun LoginScreen(
                             } else snackbarHostState.showSnackbar("Login failed")
                         } catch (e: Exception) {
                             snackbarHostState.showSnackbar(e.message ?: "Login error")
+                        } finally {
+                            isLoading.value = false
                         }
                     }
                 },
+                enabled = !isLoading.value,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -165,10 +170,18 @@ fun LoginScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Text(
-                    text = "Login",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
+                if (isLoading.value) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Login",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
