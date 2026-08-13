@@ -1,7 +1,17 @@
 package com.dennis.bookora.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -12,25 +22,25 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import java.text.SimpleDateFormat
-import java.util.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
-import com.dennis.bookora.models.User
+import coil.compose.AsyncImage
 import com.dennis.bookora.BuildConfig
+import com.dennis.bookora.models.User
+import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +63,18 @@ fun ProfileScreen(
     var username by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
     var bio by rememberSaveable { mutableStateOf("") }
+    var avatarUrl by rememberSaveable { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var shareContactByEmail by remember { mutableStateOf(true) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
+    }
+
+    // Username availability state
+    var usernameStatus by remember { mutableStateOf(UsernameStatus.IDLE) }
 
     LaunchedEffect(Unit) {
         try {
@@ -68,6 +89,8 @@ fun ProfileScreen(
                     username = profile.username
                     phone = profile.phone
                     bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast 📚" }
+                    avatarUrl = profile.avatarUrl
+                    shareContactByEmail = profile.shareContactByEmail
                 }
             }
         } catch (e: Exception) {
@@ -77,276 +100,264 @@ fun ProfileScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Profile",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { /* Handle settings */ }) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
+    // Debounced username availability check while editing
+    LaunchedEffect(username, isEditing) {
+        if (!isEditing) return@LaunchedEffect
+        if (username.isBlank() || username == currentUser?.username) {
+            usernameStatus = UsernameStatus.IDLE
+            return@LaunchedEffect
         }
+        usernameStatus = UsernameStatus.CHECKING
+        delay(450) // debounce
+        try {
+            val uid = FirebaseAuthManager.currentUser()?.uid
+            val available = uid != null && FirebaseAuthManager.isUsernameAvailable(username, uid)
+            usernameStatus = if (available) UsernameStatus.AVAILABLE else UsernameStatus.TAKEN
+        } catch (e: Exception) {
+            usernameStatus = UsernameStatus.IDLE
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
-        } else {
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header: avatar and stats (Instagram-like)
-            Row(
+            // ---------- Header ----------
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
-                // Avatar
-                Surface(
-                    modifier = Modifier.size(92.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (firstName.isNotEmpty()) firstName.first().uppercase() else "?",
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ProfileAvatar(
+                        initial = if (firstName.isNotEmpty()) firstName.first().uppercase() else "?",
+                        imageUrl = avatarUrl,
+                        selectedUri = selectedImageUri,
+                        editable = isEditing,
+                        onClick = { if (isEditing) photoPickerLauncher.launch("image/*") }
+                    )
+
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        StatItem(count = (currentUser?.booksPosted ?: 0).toString(), label = "Posts")
+                        StatItem(count = (currentUser?.booksShared ?: 0).toString(), label = "Exchanges")
+                        StatItem(count = (currentUser?.favoritesCount ?: 0).toString(), label = "Given")
                     }
                 }
 
-                Spacer(modifier = Modifier.width(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Stats
-                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    StatCard(count = (currentUser?.booksPosted ?: 0).toString(), label = "Posts")
-                    StatCard(count = (currentUser?.booksShared ?: 0).toString(), label = "Exchanges")
-                    StatCard(count = (currentUser?.favoritesCount ?: 0).toString(), label = "Given")
-                }
-
-                // Edit button
-                OutlinedButton(
-                    onClick = { isEditing = true },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Edit")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Display name and handle
-            Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = if (firstName.isNotEmpty() || lastName.isNotEmpty()) "$firstName $lastName".trim() else "Add your name",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "@${username}",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Bio
-            if (isEditing) {
-                OutlinedTextField(
-                    value = bio,
-                    onValueChange = { bio = it },
-                    label = { Text("Bio") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    maxLines = 4,
-                    minLines = 2,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                if (!isEditing) {
+                    Text(
+                        text = if (firstName.isNotEmpty() || lastName.isNotEmpty())
+                            "$firstName $lastName".trim() else "Add your name",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                )
-            } else {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "@$username",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = bio,
-                        modifier = Modifier.padding(16.dp),
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
+                        lineHeight = 20.sp
                     )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // Edit / Save buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (isEditing) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                isSaving = true
-                                try {
-                                    FirebaseAuthManager.ensureInitialized(context)
-                                    val uid = FirebaseAuthManager.currentUser()?.uid
-                                    if (uid != null) {
-                                        // Check username availability if changed
-                                        if (username.isNotBlank() && username != currentUser?.username) {
-                                            val available = FirebaseAuthManager.isUsernameAvailable(username, uid)
-                                            if (!available) {
-                                                snackbarHostState.showSnackbar("Username already taken")
-                                                isSaving = false
-                                                return@launch
-                                            }
-                                        }
-
-                                        val updates = mapOf(
-                                            "firstName" to firstName,
-                                            "lastName" to lastName,
-                                            "username" to username,
-                                            "phone" to phone,
-                                            "bio" to bio
-                                        )
-                                        FirebaseAuthManager.updateUserProfile(uid, updates)
-                                        val refreshed = FirebaseAuthManager.getUserProfile(uid)
-                                        currentUser = refreshed
-                                        isEditing = false
-                                        snackbarHostState.showSnackbar("Profile updated! ✨")
-                                    }
-                                } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar(e.message ?: "Update failed")
-                                } finally {
-                                    isSaving = false
-                                }
-                            }
-                        },
-                        enabled = !isSaving,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Save Changes")
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    OutlinedButton(
-                        onClick = {
-                            firstName = currentUser?.firstName ?: ""
-                            lastName = currentUser?.lastName ?: ""
-                            bio = currentUser?.bio ?: ""
-                            isEditing = false
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Cancel")
-                    }
-                } else {
                     OutlinedButton(
                         onClick = { isEditing = true },
-                        modifier = Modifier,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Edit Profile")
+                        Text("Edit Profile", fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Stats Row - Clean cards
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // ---------- Edit form ----------
+            AnimatedVisibility(
+                visible = isEditing,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
             ) {
-                StatCard(
-                    count = "12",
-                    label = "Listings"
-                )
-                StatCard(
-                    count = "45",
-                    label = "Exchanges"
-                )
-                StatCard(
-                    count = "8",
-                    label = "Given"
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 8.dp)
+                ) {
+                    ProfileTextField(
+                        label = "First name",
+                        value = firstName,
+                        onValueChange = { firstName = it }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ProfileTextField(
+                        label = "Last name",
+                        value = lastName,
+                        onValueChange = { lastName = it }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    UsernameField(
+                        value = username,
+                        onValueChange = { username = it.trim() },
+                        status = usernameStatus
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    ProfileTextField(
+                        label = "Phone",
+                        value = phone,
+                        onValueChange = { phone = it }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    ProfileTextField(
+                        label = "Bio",
+                        value = bio,
+                        onValueChange = { if (it.length <= 150) bio = it },
+                        singleLine = false,
+                        minLines = 3,
+                        maxLines = 5,
+                        supporting = "${bio.length}/150"
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = {
+                                firstName = currentUser?.firstName ?: ""
+                                lastName = currentUser?.lastName ?: ""
+                                username = currentUser?.username ?: ""
+                                phone = currentUser?.phone ?: ""
+                                bio = currentUser?.bio ?: ""
+                                avatarUrl = currentUser?.avatarUrl ?: ""
+                                shareContactByEmail = currentUser?.shareContactByEmail ?: true
+                                selectedImageUri = null
+                                usernameStatus = UsernameStatus.IDLE
+                                isEditing = false
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Button(
+                            onClick = {
+                                if (usernameStatus == UsernameStatus.TAKEN) {
+                                    scope.launch { snackbarHostState.showSnackbar("Username already taken") }
+                                    return@Button
+                                }
+                                if (usernameStatus == UsernameStatus.CHECKING) {
+                                    scope.launch { snackbarHostState.showSnackbar("Still checking that username…") }
+                                    return@Button
+                                }
+                                scope.launch {
+                                    isSaving = true
+                                    try {
+                                        FirebaseAuthManager.ensureInitialized(context)
+                                        val uid = FirebaseAuthManager.currentUser()?.uid
+                                        if (uid != null) {
+                                            var finalAvatarUrl = avatarUrl
+                                            selectedImageUri?.let { uri ->
+                                                finalAvatarUrl = FirebaseAuthManager.uploadProfileImage(uid, uri)
+                                            }
+
+                                            val updates = mapOf(
+                                                "firstName" to firstName,
+                                                "lastName" to lastName,
+                                                "username" to username,
+                                                "phone" to phone,
+                                                "bio" to bio,
+                                                "avatarUrl" to finalAvatarUrl,
+                                                "shareContactByEmail" to shareContactByEmail
+                                            )
+                                            FirebaseAuthManager.updateUserProfile(uid, updates)
+                                            currentUser = FirebaseAuthManager.getUserProfile(uid)
+                                            avatarUrl = finalAvatarUrl
+                                            selectedImageUri = null
+                                            isEditing = false
+                                            snackbarHostState.showSnackbar("Profile updated")
+                                        }
+                                    } catch (e: Exception) {
+                                        snackbarHostState.showSnackbar(e.message ?: "Update failed")
+                                    } finally {
+                                        isSaving = false
+                                    }
+                                }
+                            },
+                            enabled = !isSaving,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            if (isSaving) {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Save", fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Divider(color = MaterialTheme.colorScheme.surfaceVariant, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Divider
-            Divider(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Menu items - Clean list style
+            // ---------- Settings ----------
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    "Settings",
-                    fontSize = 13.sp,
+                    "SETTINGS",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                    letterSpacing = 1.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                 )
 
-                SettingsMenuItem(
-                    icon = Icons.Outlined.Book,
-                    title = "My Listings"
-                )
+                SettingsMenuItem(icon = Icons.Outlined.Book, title = "My Listings")
 
                 SettingsMenuItem(
                     icon = Icons.Outlined.Share,
@@ -355,10 +366,22 @@ fun ProfileScreen(
                     trailing = {
                         Switch(
                             checked = shareContactByEmail,
-                            onCheckedChange = { shareContactByEmail = it },
+                            onCheckedChange = { newValue ->
+                                shareContactByEmail = newValue
+                                scope.launch {
+                                    try {
+                                        val uid = FirebaseAuthManager.currentUser()?.uid
+                                        if (uid != null) {
+                                            FirebaseAuthManager.updateUserProfile(uid, mapOf("shareContactByEmail" to newValue))
+                                        }
+                                    } catch (e: Exception) {
+                                        snackbarHostState.showSnackbar("Failed to update setting")
+                                    }
+                                }
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                             )
                         )
                     }
@@ -377,12 +400,13 @@ fun ProfileScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Logout Button - Styled as text button with icon
             TextButton(
                 onClick = onLogout,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             ) {
                 Icon(
                     Icons.Outlined.Logout,
@@ -391,61 +415,180 @@ fun ProfileScreen(
                     tint = MaterialTheme.colorScheme.error
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "Sign Out",
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Medium
-                )
+                Text("Sign Out", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // App version - subtle
             Text(
                 text = "Version ${BuildConfig.VERSION_NAME}",
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+private enum class UsernameStatus { IDLE, CHECKING, AVAILABLE, TAKEN }
+
+@Composable
+private fun ProfileAvatar(
+    initial: String,
+    imageUrl: String,
+    selectedUri: Uri?,
+    editable: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        contentAlignment = Alignment.BottomEnd,
+        modifier = Modifier.clickable(enabled = editable, onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(84.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selectedUri != null || imageUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = selectedUri ?: imageUrl,
+                    contentDescription = "Profile picture",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = initial,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        }
+        if (editable) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.CameraAlt,
+                    contentDescription = "Change photo",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(13.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun RowScope.StatCard(
-    count: String,
-    label: String
-) {
-    Card(
+private fun RowScope.StatItem(count: String, label: String) {
+    Column(
         modifier = Modifier.weight(1f),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = count,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        Text(
+            text = count,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = 1,
+    supporting: String? = null
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = singleLine,
+        minLines = minLines,
+        maxLines = maxLines,
+        supportingText = supporting?.let { { Text(it, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth()) } },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            focusedLabelColor = MaterialTheme.colorScheme.primary
+        )
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UsernameField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    status: UsernameStatus
+) {
+    val (icon, iconTint, helper) = when (status) {
+        UsernameStatus.CHECKING -> Triple(null, MaterialTheme.colorScheme.onSurfaceVariant, "Checking availability…")
+        UsernameStatus.AVAILABLE -> Triple(Icons.Filled.CheckCircle, MaterialTheme.colorScheme.primary, "Username is available")
+        UsernameStatus.TAKEN -> Triple(Icons.Filled.Cancel, MaterialTheme.colorScheme.error, "Username is already taken")
+        UsernameStatus.IDLE -> Triple(null, MaterialTheme.colorScheme.onSurfaceVariant, null)
+    }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text("Username") },
+        leadingIcon = { Text("@", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium) },
+        trailingIcon = {
+            when (status) {
+                UsernameStatus.CHECKING -> CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                UsernameStatus.AVAILABLE, UsernameStatus.TAKEN -> icon?.let {
+                    Icon(it, contentDescription = null, tint = iconTint)
+                }
+                UsernameStatus.IDLE -> {}
+            }
+        },
+        supportingText = helper?.let {
+            { Text(it, color = iconTint) }
+        },
+        singleLine = true,
+        isError = status == UsernameStatus.TAKEN,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            focusedLabelColor = MaterialTheme.colorScheme.primary
+        )
+    )
 }
 
 @Composable
@@ -456,46 +599,39 @@ private fun SettingsMenuItem(
     trailing: (@Composable () -> Unit)? = null,
     onClick: () -> Unit = {}
 ) {
-    Card(
+    Surface(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        ),
-        onClick = onClick,
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        color = androidx.compose.ui.graphics.Color.Transparent
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(9.dp))
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     icon,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Title and Subtitle
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -510,7 +646,6 @@ private fun SettingsMenuItem(
                 }
             }
 
-            // Trailing content (Switch, chevron, etc.)
             if (trailing != null) {
                 trailing()
             } else {
