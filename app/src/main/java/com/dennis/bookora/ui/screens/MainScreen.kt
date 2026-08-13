@@ -30,7 +30,9 @@ fun MainScreen(
     onBookClick: (String) -> Unit = {},
     onPrivacyClick: () -> Unit = {},
     onTermsClick: () -> Unit = {},
-    onNotificationClick: (String) -> Unit = {}
+    onNotificationClick: (String) -> Unit = {},
+    onMyListingsClick: () -> Unit = {},
+    onChatClick: (String) -> Unit = {}
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -58,9 +60,9 @@ fun MainScreen(
                         )
                     }
                     if (selectedTab == MainTab.Profile) {
-                            IconButton(onClick = { showLogoutDialog = true }) {
-                                Icon(Icons.AutoMirrored.Rounded.Logout, "Logout", tint = MaterialTheme.colorScheme.error)
-                            }
+                        IconButton(onClick = { showLogoutDialog = true }) {
+                            Icon(Icons.AutoMirrored.Rounded.Logout, "Logout", tint = MaterialTheme.colorScheme.error)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -98,8 +100,16 @@ fun MainScreen(
                 MainTab.Home -> HomeScreen(onBookClick)
                 MainTab.Search -> SearchScreen(onBookClick)
                 MainTab.Create -> CreateListingScreen()
-                MainTab.Notifications -> NotificationsScreen(onNotificationClick = onNotificationClick)
-                MainTab.Profile -> ProfileScreen({ showLogoutDialog = true }, onPrivacyClick, onTermsClick)
+                MainTab.Notifications -> NotificationsScreen(
+                    onNotificationClick = onNotificationClick,
+                    onChatClick = onChatClick
+                )
+                MainTab.Profile -> ProfileScreen(
+                    onLogout = { showLogoutDialog = true },
+                    onPrivacyClick = onPrivacyClick,
+                    onTermsClick = onTermsClick,
+                    onMyListingsClick = onMyListingsClick
+                )
             }
         }
     }
