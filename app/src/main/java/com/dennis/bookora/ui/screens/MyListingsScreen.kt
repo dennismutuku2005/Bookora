@@ -21,33 +21,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ListingType
-import com.dennis.bookora.repository.BookRepository
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.ui.viewmodels.MyListingsViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyListingsScreen(
-    repository: BookRepository,
+    viewModel: MyListingsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onBack: () -> Unit,
     onEditClick: (String) -> Unit,
     onBookClick: (String) -> Unit
 ) {
+    val listings by viewModel.listings
+    val isLoading by viewModel.isLoading
     val scope = rememberCoroutineScope()
-    var listings by remember { mutableStateOf<List<Book>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
     val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(Unit) {
-        val uid = FirebaseAuthManager.currentUser()?.uid
-        if (uid != null) {
-            listings = repository.getMyBooks(uid)
-        }
-        isLoading = false
-    }
 
     Scaffold(
         topBar = {
@@ -99,15 +91,15 @@ fun MyListingsScreen(
                         book = book,
                         onEdit = { onEditClick(book.id) },
                         onDelete = {
-                            scope.launch {
-                                try {
-                                    repository.deleteBook(book.id)
-                                    listings = listings.filter { it.id != book.id }
-                                    snackbarHostState.showSnackbar("Listing deleted")
-                                } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar("Delete failed: ${e.message}")
+                            viewModel.deleteListing(
+                                bookId = book.id,
+                                onSuccess = {
+                                    scope.launch { snackbarHostState.showSnackbar("Listing deleted") }
+                                },
+                                onError = { error ->
+                                    scope.launch { snackbarHostState.showSnackbar(error) }
                                 }
-                            }
+                            )
                         },
                         onClick = { onBookClick(book.id) }
                     )
