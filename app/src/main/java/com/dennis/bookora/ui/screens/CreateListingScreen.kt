@@ -15,6 +15,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +45,9 @@ fun CreateListingScreen() {
     var location by remember { mutableStateOf("") }
     var isExchange by remember { mutableStateOf(true) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isPublishing by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -246,14 +261,77 @@ fun CreateListingScreen() {
         Spacer(modifier = Modifier.height(36.dp))
         
         Button(
-            onClick = { /* Publish logic */ },
+            onClick = {
+                scope.launch {
+                    try {
+                        isPublishing = true
+                        FirebaseApp.initializeApp(context)
+                        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                        if (uid == null) {
+                            Toast.makeText(context, "Please sign in to publish", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+
+                        val storage = Firebase.storage
+                        var coverUrl = ""
+                        if (selectedImageUri != null) {
+                            val ref = storage.reference.child("books/$uid/${System.currentTimeMillis()}.jpg")
+                            context.contentResolver.openInputStream(selectedImageUri!!).use { stream ->
+                                if (stream != null) {
+                                    ref.putStream(stream).await()
+                                    coverUrl = ref.downloadUrl.await().toString()
+                                }
+                            }
+                        }
+
+                        val firestore = Firebase.firestore
+                        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
+                        val conditionEnum = when (condition) {
+                            "Like New" -> "LIKE_NEW"
+                            "Good" -> "GOOD"
+                            "Fair" -> "FAIR"
+                            else -> "GOOD"
+                        }
+                        val listingType = if (isExchange) "EXCHANGE" else "GIVEAWAY"
+
+                        val bookDoc = mapOf(
+                            "title" to title,
+                            "author" to author,
+                            "description" to description,
+                            "location" to location,
+                            "condition" to conditionEnum,
+                            "coverUrl" to coverUrl,
+                            "listingType" to listingType,
+                            "ownerId" to uid,
+                            "postedDate" to sdf.format(Date())
+                        )
+
+                        firestore.collection("books").add(bookDoc).await()
+                        Toast.makeText(context, "Listing published", Toast.LENGTH_SHORT).show()
+                        // reset form
+                        title = ""
+                        author = ""
+                        description = ""
+                        location = ""
+                        selectedImageUri = null
+                    } catch (e: Exception) {
+                        Toast.makeText(context, e.message ?: "Publish failed", Toast.LENGTH_SHORT).show()
+                    } finally {
+                        isPublishing = false
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp),
             shape = RoundedCornerShape(16.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
-            Icon(Icons.Rounded.Publish, null)
+            if (isPublishing) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Rounded.Publish, null)
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Text("Publish Listing", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
