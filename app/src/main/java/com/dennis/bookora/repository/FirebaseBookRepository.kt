@@ -184,6 +184,34 @@ class FirebaseBookRepository @Inject constructor() : BookRepository {
 
     override suspend fun getFavorites(): List<Book> = emptyList()
 
+    override suspend fun toggleFavorite(bookId: String) {
+        val uid = currentUid()
+        val favRef = firestore.collection("users").document(uid).collection("favorites").document(bookId)
+        val existing = favRef.get().await()
+        if (existing.exists()) {
+            favRef.delete().await()
+        } else {
+            favRef.set(mapOf("bookId" to bookId, "timestamp" to System.currentTimeMillis())).await()
+        }
+    }
+
+    override suspend fun getFavorites(): List<Book> {
+        val uid = try { currentUid() } catch (_: Exception) { return emptyList() }
+        return try {
+            val favSnap = firestore.collection("users").document(uid).collection("favorites").get().await()
+            val ids = favSnap.documents.mapNotNull { it.getString("bookId") }
+            if (ids.isEmpty()) return emptyList()
+            // Firestore whereIn has a limit; fetch in batches of 10
+            val chunks = ids.chunked(10)
+            val books = mutableListOf<Book>()
+            for (chunk in chunks) {
+                val snap = firestore.collection("books").whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk).get().await()
+                books.addAll(snap.documents.mapNotNull { docToBook(it) })
+            }
+            books.sortedByDescending { it.postedTimestamp }
+        } catch (_: Exception) { emptyList() }
+    }
+
     // ──────────────── notifications ────────────────
 
     override suspend fun getNotifications(): List<Notification> {
