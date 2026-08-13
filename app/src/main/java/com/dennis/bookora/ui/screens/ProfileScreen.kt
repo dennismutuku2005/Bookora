@@ -146,6 +146,7 @@ fun ProfileScreen(
                         imageUrl = avatarUrl,
                         selectedUri = selectedImageUri,
                         editable = isEditing,
+                        isSaving = isSaving,
                         onClick = { if (isEditing) photoPickerLauncher.launch("image/*") }
                     )
 
@@ -293,6 +294,7 @@ fun ProfileScreen(
                                         if (uid != null) {
                                             var finalAvatarUrl = avatarUrl
                                             selectedImageUri?.let { uri ->
+                                                snackbarHostState.showSnackbar("Uploading image...")
                                                 finalAvatarUrl = FirebaseAuthManager.uploadProfileImage(uid, uri)
                                             }
 
@@ -310,10 +312,10 @@ fun ProfileScreen(
                                             avatarUrl = finalAvatarUrl
                                             selectedImageUri = null
                                             isEditing = false
-                                            snackbarHostState.showSnackbar("Profile updated")
+                                            snackbarHostState.showSnackbar("Profile updated successfully")
                                         }
                                     } catch (e: Exception) {
-                                        snackbarHostState.showSnackbar(e.message ?: "Update failed")
+                                        snackbarHostState.showSnackbar("Update failed: ${e.message}")
                                     } finally {
                                         isSaving = false
                                     }
@@ -330,7 +332,7 @@ fun ProfileScreen(
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                Text("Save", fontWeight = FontWeight.Medium)
+                                Text("Save Changes", fontWeight = FontWeight.Medium)
                             }
                         }
                     }
@@ -441,11 +443,12 @@ private fun ProfileAvatar(
     imageUrl: String,
     selectedUri: Uri?,
     editable: Boolean,
+    isSaving: Boolean = false,
     onClick: () -> Unit
 ) {
     Box(
         contentAlignment = Alignment.BottomEnd,
-        modifier = Modifier.clickable(enabled = editable, onClick = onClick)
+        modifier = Modifier.clickable(enabled = editable && !isSaving, onClick = onClick)
     ) {
         Box(
             modifier = Modifier
@@ -475,6 +478,21 @@ private fun ProfileAvatar(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
+            }
+            
+            if (isSaving) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                }
             }
         }
         if (editable) {
