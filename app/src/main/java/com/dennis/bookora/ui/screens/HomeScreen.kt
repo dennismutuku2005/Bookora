@@ -83,7 +83,7 @@ fun HomeScreen(onBookClick: (String) -> Unit) {
                 Spacer(modifier = Modifier.height(16.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(featured) { book ->
-                        VerticalBookCard(book, onBookClick)
+                        VerticalBookCard(book, onBookClick, onFavorite = { id -> vm.toggleFavorite(id) })
                     }
                 }
                 Spacer(modifier = Modifier.height(32.dp))
@@ -97,7 +97,7 @@ fun HomeScreen(onBookClick: (String) -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 all.forEach { book ->
-                    CleanBookCard(book, onBookClick)
+                    CleanBookCard(book, onBookClick, onFavorite = { id -> vm.toggleFavorite(id) })
                 }
             }
         }
