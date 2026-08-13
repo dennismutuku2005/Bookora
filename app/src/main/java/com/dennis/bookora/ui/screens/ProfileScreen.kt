@@ -8,19 +8,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
-import com.dennis.bookora.models.User
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.TextField
+import java.text.SimpleDateFormat
+import java.util.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,9 +21,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.models.User
+import com.dennis.bookora.BuildConfig
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
@@ -39,277 +41,485 @@ fun ProfileScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var isLoading by remember { mutableStateOf(true) }
+    var isSaving by remember { mutableStateOf(false) }
+    var isEditing by remember { mutableStateOf(false) }
 
     var currentUser by remember { mutableStateOf<User?>(null) }
     var firstName by rememberSaveable { mutableStateOf("") }
     var lastName by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
+    var phone by rememberSaveable { mutableStateOf("") }
     var bio by rememberSaveable { mutableStateOf("") }
     var shareContactByEmail by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        val uid = FirebaseAuthManager.currentUser()?.uid
-        if (uid != null) {
-            try {
+        try {
+            FirebaseAuthManager.ensureInitialized(context)
+            val uid = FirebaseAuthManager.currentUser()?.uid
+            if (uid != null) {
                 val profile = FirebaseAuthManager.getUserProfile(uid)
                 currentUser = profile
                 if (profile != null) {
                     firstName = profile.firstName
                     lastName = profile.lastName
-                    username = profile.email.substringBefore('@')
-                    bio = profile.bio
+                    username = profile.username
+                    phone = profile.phone
+                    bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast 📚" }
                 }
-            } catch (e: Exception) {
-                // ignore for now
             }
+        } catch (e: Exception) {
+            // Handle error
+        } finally {
+            isLoading = false
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // Profile Header
-        Box(contentAlignment = Alignment.BottomEnd) {
-            Surface(
-                modifier = Modifier.size(110.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
                     Text(
-                        "DM",
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
+                        "Profile",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                actions = {
+                    IconButton(onClick = { /* Handle settings */ }) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Settings")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        }
+    ) { paddingValues ->
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header: avatar and stats (Instagram-like)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Avatar
+                Surface(
+                    modifier = Modifier.size(92.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (firstName.isNotEmpty()) firstName.first().uppercase() else "?",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(18.dp))
+
+                // Stats
+                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatCard(count = (currentUser?.booksPosted ?: 0).toString(), label = "Posts")
+                    StatCard(count = (currentUser?.booksShared ?: 0).toString(), label = "Exchanges")
+                    StatCard(count = (currentUser?.favoritesCount ?: 0).toString(), label = "Given")
+                }
+
+                // Edit button
+                OutlinedButton(
+                    onClick = { isEditing = true },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Edit")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Display name and handle
+            Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = if (firstName.isNotEmpty() || lastName.isNotEmpty()) "$firstName $lastName".trim() else "Add your name",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "@${username}",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Bio
+            if (isEditing) {
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    label = { Text("Bio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    maxLines = 4,
+                    minLines = 2,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Text(
+                        text = bio,
+                        modifier = Modifier.padding(16.dp),
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 22.sp
                     )
                 }
             }
-            Surface(
-                modifier = Modifier.size(32.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 4.dp
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Edit / Save buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "@${if (username.isBlank()) "user" else username}",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+                if (isEditing) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isSaving = true
+                                try {
+                                    FirebaseAuthManager.ensureInitialized(context)
+                                    val uid = FirebaseAuthManager.currentUser()?.uid
+                                    if (uid != null) {
+                                        // Check username availability if changed
+                                        if (username.isNotBlank() && username != currentUser?.username) {
+                                            val available = FirebaseAuthManager.isUsernameAvailable(username, uid)
+                                            if (!available) {
+                                                snackbarHostState.showSnackbar("Username already taken")
+                                                isSaving = false
+                                                return@launch
+                                            }
+                                        }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
-            label = { Text("First name") },
-            modifier = Modifier.fillMaxWidth(0.9f),
-            shape = RoundedCornerShape(12.dp)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
-            label = { Text("Last name") },
-            modifier = Modifier.fillMaxWidth(0.9f),
-            shape = RoundedCornerShape(12.dp)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = bio,
-            onValueChange = { bio = it },
-            label = { Text("Bio") },
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .height(120.dp),
-            shape = RoundedCornerShape(12.dp),
-            maxLines = 4
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = {
-                scope.launch {
-                    val uid = FirebaseAuthManager.currentUser()?.uid
-                    if (uid != null) {
-                        try {
-                            val updates = mapOf(
-                                "firstName" to firstName,
-                                "lastName" to lastName,
-                                "bio" to bio
+                                        val updates = mapOf(
+                                            "firstName" to firstName,
+                                            "lastName" to lastName,
+                                            "username" to username,
+                                            "phone" to phone,
+                                            "bio" to bio
+                                        )
+                                        FirebaseAuthManager.updateUserProfile(uid, updates)
+                                        val refreshed = FirebaseAuthManager.getUserProfile(uid)
+                                        currentUser = refreshed
+                                        isEditing = false
+                                        snackbarHostState.showSnackbar("Profile updated! ✨")
+                                    }
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar(e.message ?: "Update failed")
+                                } finally {
+                                    isSaving = false
+                                }
+                            }
+                        },
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
                             )
-                            FirebaseAuthManager.updateUserProfile(uid, updates)
-                            snackbarHostState.showSnackbar("Profile updated")
-                        } catch (e: Exception) {
-                            snackbarHostState.showSnackbar(e.message ?: "Update failed")
+                        } else {
+                            Text("Save Changes")
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            firstName = currentUser?.firstName ?: ""
+                            lastName = currentUser?.lastName ?: ""
+                            bio = currentUser?.bio ?: ""
+                            isEditing = false
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { isEditing = true },
+                        modifier = Modifier,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Edit Profile")
+                    }
                 }
-            }) { Text("Save Changes") }
-            OutlinedButton(onClick = {
-                // Reset to loaded profile
-                firstName = currentUser?.firstName ?: ""
-                lastName = currentUser?.lastName ?: ""
-                bio = currentUser?.bio ?: ""
-            }) { Text("Reset") }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Stats Row - Clean cards
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StatCard(
+                    count = "12",
+                    label = "Listings"
+                )
+                StatCard(
+                    count = "45",
+                    label = "Exchanges"
+                )
+                StatCard(
+                    count = "8",
+                    label = "Given"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Divider
+            Divider(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Menu items - Clean list style
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "Settings",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                )
+
+                SettingsMenuItem(
+                    icon = Icons.Outlined.Book,
+                    title = "My Listings"
+                )
+
+                SettingsMenuItem(
+                    icon = Icons.Outlined.Share,
+                    title = "Share Contact Info",
+                    subtitle = "When someone claims your book",
+                    trailing = {
+                        Switch(
+                            checked = shareContactByEmail,
+                            onCheckedChange = { shareContactByEmail = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                )
+
+                SettingsMenuItem(
+                    icon = Icons.Outlined.PrivacyTip,
+                    title = "Privacy Policy",
+                    onClick = onPrivacyClick
+                )
+
+                SettingsMenuItem(
+                    icon = Icons.Outlined.Description,
+                    title = "Terms & Conditions",
+                    onClick = onTermsClick
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Logout Button - Styled as text button with icon
+            TextButton(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Outlined.Logout,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "Sign Out",
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // App version - subtle
+            Text(
+                text = "Version ${BuildConfig.VERSION_NAME}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
-        
-        Spacer(modifier = Modifier.height(28.dp))
-        
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard("12", "Posts", Modifier.weight(1f))
-            StatCard("45", "Exchanges", Modifier.weight(1f))
-            StatCard("8", "Given", Modifier.weight(1f))
         }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // Menu Items
+    }
+}
+
+@Composable
+private fun RowScope.StatCard(
+    count: String,
+    label: String
+) {
+    Card(
+        modifier = Modifier.weight(1f),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Account Settings",
-                style = MaterialTheme.typography.labelLarge,
+                text = count,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+                color = MaterialTheme.colorScheme.primary
             )
-            
-            ProfileMenuItem(Icons.Rounded.LibraryBooks, "My Listings")
-            
-            // Toggle for sharing contact
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Rounded.Share, null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Share Contact Info", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                        Text("When someone claims your book", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(
-                        checked = shareContactByEmail,
-                        onCheckedChange = { shareContactByEmail = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.primary)
-                    )
-                }
-            }
-            
-            ProfileMenuItem(Icons.Rounded.Settings, "General Settings")
-            
-            Spacer(modifier = Modifier.height(12.dp))
             Text(
-                "Support & Legal",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+                text = label,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
             )
-            
-            ProfileMenuItem(Icons.Rounded.HelpOutline, "Help & Support")
-            ProfileMenuItem(Icons.Rounded.PrivacyTip, "Privacy Policy", onClick = onPrivacyClick)
-            ProfileMenuItem(Icons.Rounded.Description, "Terms & Conditions", onClick = onTermsClick)
         }
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-            OutlinedButton(
-            onClick = onLogout,
+    }
+}
+
+@Composable
+private fun SettingsMenuItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        ),
+        onClick = onClick,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Rounded.Logout, null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text("Logout Session", fontWeight = FontWeight.Bold)
-        }
-        
-        Spacer(modifier = Modifier.height(100.dp))
-    }
-}
-
-@Composable
-private fun StatCard(value: String, label: String, modifier: Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-    ) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-        }
-    }
-}
-
-@Composable
-private fun ProfileMenuItem(icon: ImageVector, label: String, onClick: () -> Unit = {}) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Icon
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surface),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     icon,
-                    null,
+                    contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Icon(
-                Icons.Rounded.ChevronRight,
-                null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Title and Subtitle
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Trailing content (Switch, chevron, etc.)
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(
+                    Icons.Outlined.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+            }
         }
     }
 }
