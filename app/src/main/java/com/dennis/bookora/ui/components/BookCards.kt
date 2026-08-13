@@ -22,6 +22,7 @@ import coil.compose.AsyncImage
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ListingType
 
+import coil.compose.AsyncImage
 @Composable
 fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
     Card(
@@ -45,28 +46,21 @@ fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit) {
                 AsyncImage(
                     model = book.coverUrl,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-                
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                ) {
-                    Text(
-                        text = book.listingType.name.lowercase().capitalize(),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                if (book.coverUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = book.coverUrl,
+                        contentDescription = book.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(70.dp),
+                        alpha = 0.4f
                     )
                 }
-            }
-            
-            Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = book.title,
                     style = MaterialTheme.typography.titleSmall,
@@ -143,16 +137,29 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit) {
             AsyncImage(
                 model = book.coverUrl,
                 contentDescription = null,
-                modifier = Modifier
-                    .width(76.dp)
-                    .height(112.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentScale = ContentScale.Crop
-            )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
+            if (book.coverUrl.isNotBlank()) {
+                AsyncImage(
+                    model = book.coverUrl,
+                    contentDescription = book.title,
+                    modifier = Modifier
+                        .width(76.dp)
+                        .height(112.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .width(76.dp)
+                        .height(112.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    alpha = 0.4f
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
