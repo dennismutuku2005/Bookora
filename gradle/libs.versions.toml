@@ -11,7 +11,7 @@ coilCompose = "2.7.0"
 coroutines = "1.8.1"
 hilt = "2.56.2"
 hiltNavigationCompose = "1.2.0"
-firebaseBom = "34.17.0"
+firebaseBom = "32.8.0"
 googlePlayServicesAuth = "21.6.0"
 
 junit = "4.13.2"
@@ -58,6 +58,7 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 google-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googlePlayServicesAuth" }
 
