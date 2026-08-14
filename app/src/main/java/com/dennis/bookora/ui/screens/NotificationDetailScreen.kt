@@ -3,8 +3,6 @@ package com.dennis.bookora.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,13 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dennis.bookora.models.ClaimRequest
-import com.dennis.bookora.models.ClaimStatus
-import com.dennis.bookora.repository.BookRepository
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.dennis.bookora.repository.ApiBookRepository
+import com.dennis.bookora.repository.auth.AuthManager
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +35,7 @@ fun NotificationDetailScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val currentUid = FirebaseAuthManager.currentUser()?.uid ?: ""
+    val currentUid = AuthManager.currentUser()?.uid ?: ""
 
     LaunchedEffect(notificationId) {
         try {

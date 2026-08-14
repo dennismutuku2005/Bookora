@@ -13,7 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.repository.auth.AuthManager
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
@@ -137,16 +137,16 @@ fun LoginScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        FirebaseAuthManager.ensureInitialized(context)
+                        AuthManager.ensureInitialized(context)
                         isLoading.value = true
                         try {
-                            val ok = FirebaseAuthManager.login(email.value, password.value)
+                            val ok = AuthManager.login(email.value, password.value)
                             if (ok) {
                                 // try to fetch user profile (optional)
-                                val uid = FirebaseAuthManager.currentUser()?.uid
+                                val uid = AuthManager.currentUser()?.uid
                                 if (uid != null) {
                                     try {
-                                        val profile = FirebaseAuthManager.getUserProfile(uid)
+                                        val profile = AuthManager.getUserProfile(uid)
                                         // optionally do something with profile (not wired into UI yet)
                                     } catch (_: Exception) {}
                                 }

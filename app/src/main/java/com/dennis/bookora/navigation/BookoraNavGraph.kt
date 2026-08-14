@@ -4,8 +4,9 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
 import androidx.compose.ui.Modifier
+import com.dennis.bookora.repository.auth.AuthSession
+import com.dennis.bookora.repository.auth.AuthManager
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,8 +22,8 @@ fun BookoraNavGraph(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    FirebaseAuthManager.ensureInitialized(context)
-    val startDestination = if (FirebaseAuthManager.currentUser() != null) BookoraDestinations.Main else BookoraDestinations.Welcome
+    AuthManager.ensureInitialized(context)
+    val startDestination = if (AuthSession.isLoggedIn()) BookoraDestinations.Main else BookoraDestinations.Welcome
 
     NavHost(
         navController = navController,

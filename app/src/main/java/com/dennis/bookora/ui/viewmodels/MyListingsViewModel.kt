@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.repository.BookRepository
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.repository.auth.AuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -30,7 +30,7 @@ class MyListingsViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val uid = FirebaseAuthManager.currentUser()?.uid
+                val uid = AuthManager.currentUser()?.uid
                 if (uid != null) {
                     _listings.value = repository.getMyBooks(uid)
                 }

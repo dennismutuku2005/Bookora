@@ -8,7 +8,7 @@ import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ClaimRequest
 import com.dennis.bookora.models.User
 import com.dennis.bookora.repository.BookRepository
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.repository.auth.AuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -51,7 +51,7 @@ class BookDetailViewModel @Inject constructor(
             isLoading.value = true
             error.value = null
             try {
-                val currentUid = FirebaseAuthManager.currentUser()?.uid
+                val currentUid = AuthManager.currentUser()?.uid
                 val b = repo.getBookById(bookId)
                 book.value = b
                 if (b == null) {

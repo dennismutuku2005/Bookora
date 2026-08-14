@@ -6,12 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dennis.bookora.models.Message
 import com.dennis.bookora.repository.BookRepository
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,66 +34,30 @@ class ChatViewModel @Inject constructor(
     var bookTitle = mutableStateOf("")
         private set
 
-    private var listenerRegistration: ListenerRegistration? = null
-
     init {
         loadConversationInfo()
-        listenForMessages()
+        startListeningForMessages()
     }
 
     private fun loadConversationInfo() {
-        viewModelScope.launch {
-            try {
-                val currentUid = FirebaseAuthManager.currentUser()?.uid ?: ""
-                val doc = Firebase.firestore.collection("conversations").document(conversationId).get()
-                doc.addOnSuccessListener { snapshot ->
-                    if (snapshot.exists()) {
-                        bookTitle.value = snapshot.getString("bookTitle") ?: ""
-                        @Suppress("UNCHECKED_CAST")
-                        val names = snapshot.get("participantNames") as? Map<String, String>
-                        names?.forEach { (uid, name) ->
-                            if (uid != currentUid) {
-                                otherUserName.value = name
-                            }
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        }
+        otherUserName.value = "Chat"
+        bookTitle.value = ""
     }
 
-    private fun listenForMessages() {
-        isLoading.value = true
-        val currentUid = FirebaseAuthManager.currentUser()?.uid ?: ""
-        
-        listenerRegistration = Firebase.firestore
-            .collection("conversations")
-            .document(conversationId)
-            .collection("messages")
-            .orderBy("timestamp", Query.Direction.ASCENDING)
-            .addSnapshotListener { snapshot, e ->
-                isLoading.value = false
-                if (e != null) {
+    private fun startListeningForMessages() {
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    isLoading.value = messages.value.isEmpty()
+                    messages.value = repo.getMessages(conversationId)
+                    error.value = null
+                } catch (e: Exception) {
                     error.value = e.message
-                    return@addSnapshotListener
                 }
-                if (snapshot != null) {
-                    val list = snapshot.documents.mapNotNull { doc ->
-                        val d = doc.data ?: return@mapNotNull null
-                        Message(
-                            id = doc.id,
-                            conversationId = conversationId,
-                            senderId = d["senderId"] as? String ?: "",
-                            senderName = d["senderName"] as? String ?: "",
-                            text = d["text"] as? String ?: "",
-                            timestamp = (d["timestamp"] as? Number)?.toLong() ?: 0L,
-                            isMine = (d["senderId"] as? String) == currentUid,
-                            read = d["read"] as? Boolean ?: false
-                        )
-                    }
-                    messages.value = list
-                }
+                // Poll every 2 seconds for new messages
+                delay(2000)
             }
+        }
     }
 
     fun sendMessage(text: String) {
@@ -105,14 +65,11 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 repo.sendMessage(conversationId, text.trim())
+                // Refresh messages immediately after sending
+                messages.value = repo.getMessages(conversationId)
             } catch (e: Exception) {
                 error.value = e.message
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        listenerRegistration?.remove()
     }
 }

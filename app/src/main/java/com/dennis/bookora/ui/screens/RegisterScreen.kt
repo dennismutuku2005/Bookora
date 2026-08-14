@@ -14,7 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.repository.auth.AuthManager
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
@@ -214,14 +214,14 @@ fun RegisterScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        FirebaseAuthManager.ensureInitialized(context)
+                        AuthManager.ensureInitialized(context)
                         if (password.value != confirmPassword.value) {
                             snackbarHostState.showSnackbar("Passwords do not match")
                             return@launch
                         }
                         isLoading.value = true
                         try {
-                            val ok = FirebaseAuthManager.register(
+                            val ok = AuthManager.register(
                                 email = email.value,
                                 password = password.value,
                                 firstName = firstName.value,

@@ -1,6 +1,7 @@
 package com.dennis.bookora.ui.screens
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,25 +16,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
-import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.ktx.storage
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
-import java.util.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.dennis.bookora.models.Book
+import com.dennis.bookora.models.ListingCondition
+import com.dennis.bookora.models.ListingType
+import com.dennis.bookora.repository.ApiBookRepository
+import com.dennis.bookora.repository.auth.AuthManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,25 +62,25 @@ fun CreateListingScreen(
         onResult = { uri -> selectedImageUri = uri }
     )
 
+    val repo = remember { ApiBookRepository() }
+
     LaunchedEffect(bookId) {
         if (bookId != null) {
             try {
-                val db = Firebase.firestore
-                val doc = db.collection("books").document(bookId).get().await()
-                if (doc.exists()) {
-                    title = doc.getString("title") ?: ""
-                    author = doc.getString("author") ?: ""
-                    category = doc.getString("category") ?: "Fiction"
-                    description = doc.getString("description") ?: ""
-                    location = doc.getString("location") ?: ""
-                    isExchange = (doc.getString("listingType") ?: "EXCHANGE") == "EXCHANGE"
-                    existingCoverUrl = doc.getString("coverUrl") ?: ""
-                    val conditionStr = doc.getString("condition") ?: "GOOD"
-                    condition = when(conditionStr) {
-                        "LIKE_NEW" -> "Like New"
-                        "GOOD" -> "Good"
-                        "FAIR" -> "Fair"
-                        else -> "Used"
+                val existingBook = repo.getBookById(bookId)
+                if (existingBook != null) {
+                    title = existingBook.title
+                    author = existingBook.author
+                    category = existingBook.category.ifBlank { "Fiction" }
+                    description = existingBook.description
+                    location = existingBook.location
+                    isExchange = existingBook.listingType == ListingType.EXCHANGE
+                    existingCoverUrl = existingBook.coverUrl
+                    condition = when (existingBook.condition) {
+                        ListingCondition.NEW -> "New"
+                        ListingCondition.LIKE_NEW -> "Like New"
+                        ListingCondition.GOOD -> "Good"
+                        ListingCondition.FAIR -> "Fair"
                     }
                 }
             } catch (e: Exception) {
@@ -346,72 +344,46 @@ fun CreateListingScreen(
                 scope.launch {
                     try {
                         isPublishing = true
-                        FirebaseApp.initializeApp(context)
-                        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-                        if (uid == null) {
+                        val user = AuthManager.currentUser() ?: run {
                             Toast.makeText(context, "Please sign in to publish", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
 
-                        val storage = Firebase.storage
-                        var coverUrl = existingCoverUrl
-                        if (selectedImageUri != null) {
-                            val ref = storage.reference.child("books/$uid/${System.currentTimeMillis()}.jpg")
-                            context.contentResolver.openInputStream(selectedImageUri!!).use { stream ->
-                                if (stream != null) {
-                                    ref.putStream(stream).await()
-                                    coverUrl = ref.downloadUrl.await().toString()
-                                }
-                            }
-                        }
-
-                        val firestore = Firebase.firestore
-                        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-                        val conditionEnum = when (condition) {
-                            "Like New" -> "LIKE_NEW"
-                            "Good" -> "GOOD"
-                            "Fair" -> "FAIR"
-                            else -> "GOOD"
-                        }
-                        val listingType = if (isExchange) "EXCHANGE" else "GIVEAWAY"
-
-                        // Fetch poster username
-                        val userDoc = firestore.collection("users").document(uid).get().await()
-                        val posterUsername = userDoc.getString("username") ?: ""
-
-                        val bookDoc = mutableMapOf(
-                            "title" to title,
-                            "author" to author,
-                            "category" to category,
-                            "description" to description,
-                            "location" to location,
-                            "condition" to conditionEnum,
-                            "coverUrl" to coverUrl,
-                            "listingType" to listingType,
-                            "ownerId" to uid,
-                            "ownerUsername" to posterUsername,
-                            "postedTimestamp" to System.currentTimeMillis()
+                        val coverUrl = selectedImageUri?.toString() ?: existingCoverUrl
+                        val book = Book(
+                            id = bookId ?: "",
+                            title = title.trim(),
+                            author = author.trim(),
+                            category = category,
+                            description = description.trim(),
+                            location = location.trim(),
+                            condition = when (condition) {
+                                "New" -> ListingCondition.NEW
+                                "Like New" -> ListingCondition.LIKE_NEW
+                                "Fair" -> ListingCondition.FAIR
+                                else -> ListingCondition.GOOD
+                            },
+                            coverUrl = coverUrl,
+                            listingType = if (isExchange) ListingType.EXCHANGE else ListingType.GIVEAWAY,
+                            ownerId = user.id,
+                            ownerUsername = user.username,
+                            postedTimestamp = System.currentTimeMillis(),
+                            postedDate = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault()).format(java.util.Date())
                         )
-                        
-                        if (bookId == null) {
-                            bookDoc["postedDate"] = sdf.format(Date())
-                            firestore.collection("books").add(bookDoc).await()
-                        } else {
-                            firestore.collection("books").document(bookId).update(bookDoc as Map<String, Any>).await()
-                        }
 
-                        Toast.makeText(context, if (bookId == null) "Listing published" else "Listing updated", Toast.LENGTH_SHORT).show()
-                        
                         if (bookId == null) {
-                            // reset form
+                            repo.saveBook(book)
                             title = ""
                             author = ""
                             description = ""
                             location = ""
                             selectedImageUri = null
                         } else {
+                            repo.updateBook(bookId, book)
                             onSuccess?.invoke()
                         }
+
+                        Toast.makeText(context, if (bookId == null) "Listing published" else "Listing updated", Toast.LENGTH_SHORT).show()
                     } catch (e: Exception) {
                         Toast.makeText(context, e.message ?: "Publish failed", Toast.LENGTH_SHORT).show()
                     } finally {

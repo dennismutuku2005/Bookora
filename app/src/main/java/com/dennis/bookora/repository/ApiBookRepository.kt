@@ -1,0 +1,286 @@
+package com.dennis.bookora.repository
+
+import com.dennis.bookora.api.RetrofitClient
+import com.dennis.bookora.api.toBook
+import com.dennis.bookora.api.toNotification
+import com.dennis.bookora.api.toUser
+import com.dennis.bookora.api.toChatConversation
+import com.dennis.bookora.api.toMessage
+import com.dennis.bookora.api.toClaimRequest
+import com.dennis.bookora.models.Book
+import com.dennis.bookora.models.Category
+import com.dennis.bookora.models.ChatConversation
+import com.dennis.bookora.models.ClaimRequest
+import com.dennis.bookora.models.ClaimStatus
+import com.dennis.bookora.models.ListingCondition
+import com.dennis.bookora.models.ListingType
+import com.dennis.bookora.models.Message
+import com.dennis.bookora.models.Notification
+import com.dennis.bookora.models.User
+import com.dennis.bookora.repository.auth.AuthSession
+import com.dennis.bookora.repository.auth.AuthManager
+import javax.inject.Inject
+
+class ApiBookRepository @Inject constructor() : BookRepository {
+    private fun currentUid(): String =
+        AuthManager.currentUser()?.uid ?: AuthSession.currentUserId() ?: throw IllegalStateException("Not logged in")
+
+    override suspend fun getCurrentUser(): User {
+        val uid = currentUid()
+        return AuthManager.getUserProfile(uid) ?: throw IllegalStateException("User profile not found")
+    }
+
+    override suspend fun getUsers(): List<User> {
+        return try {
+            RetrofitClient.apiService.getUsers().body()?.data.orEmpty().map { it.toUser() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getCategories(): List<Category> {
+        return try {
+            RetrofitClient.apiService.getCategories().body()?.data.orEmpty().map { it.toCategory() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getBooks(): List<Book> {
+        return try {
+            val resp = RetrofitClient.apiService.getBooks()
+            resp.body()?.data.orEmpty().map { it.toBook() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getFeaturedBooks(): List<Book> {
+        return getBooks().filter { it.listingType == ListingType.EXCHANGE }
+    }
+
+    override suspend fun getBookById(bookId: String): Book? {
+        return try {
+            RetrofitClient.apiService.getBookById(id = bookId).body()?.data?.toBook()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun getMessages(conversationId: String): List<Message> {
+        return try {
+            RetrofitClient.apiService.getMessages(conversationId = conversationId).body()?.data.orEmpty().map { it.toMessage() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getNotifications(): List<Notification> {
+        val uid = currentUid()
+        return try {
+            RetrofitClient.apiService.getNotifications(userId = uid).body()?.data.orEmpty().map { it.toNotification() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getFavorites(): List<Book> {
+        val uid = currentUid()
+        return try {
+            RetrofitClient.apiService.getFavorites(userId = uid).body()?.data.orEmpty().map { it.toBook() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun saveBook(book: Book) {
+        val uid = currentUid()
+        val map = linkedMapOf<String, Any>(
+            "user_id" to uid,
+            "title" to book.title,
+            "author" to book.author,
+            "category" to book.category,
+            "condition" to book.condition.name,
+            "location" to book.location,
+            "postedDate" to book.postedDate,
+            "postedTimestamp" to book.postedTimestamp,
+            "coverUrl" to book.coverUrl,
+            "listingType" to book.listingType.name,
+            "description" to book.description,
+            "ownerId" to uid,
+            "ownerUsername" to book.ownerUsername.ifBlank { AuthManager.getUserProfile(uid)?.username.orEmpty() },
+            "rating" to book.rating,
+            "distance" to book.distance,
+            "isFavorite" to book.isFavorite,
+            "coverColor" to book.coverColor.toString()
+        )
+        RetrofitClient.apiService.createBook(map)
+    }
+
+    override suspend fun updateBook(bookId: String, book: Book) {
+        val uid = currentUid()
+        val map = linkedMapOf<String, Any>(
+            "user_id" to uid,
+            "id" to bookId,
+            "title" to book.title,
+            "author" to book.author,
+            "category" to book.category,
+            "condition" to book.condition.name,
+            "location" to book.location,
+            "coverUrl" to book.coverUrl,
+            "listingType" to book.listingType.name,
+            "description" to book.description
+        )
+        RetrofitClient.apiService.updateBook(id = bookId, body = map)
+    }
+
+    override suspend fun deleteBook(bookId: String) {
+        RetrofitClient.apiService.deleteBook(id = bookId, userId = currentUid())
+    }
+
+    override suspend fun getMyBooks(userId: String): List<Book> {
+        return try {
+            val response = RetrofitClient.apiService.getMyListings(userId = userId)
+            response.body()?.data.orEmpty().map { it.toBook() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun toggleFavorite(bookId: String) {
+        val uid = currentUid()
+        val response = RetrofitClient.apiService.addFavorite(
+            action = "add",
+            body = mapOf("user_id" to uid, "book_id" to bookId)
+        )
+        if (response.isSuccessful && response.body()?.status == "error") {
+            RetrofitClient.apiService.removeFavorite(
+                action = "remove",
+                body = mapOf("user_id" to uid, "book_id" to bookId)
+            )
+        }
+    }
+
+    override suspend fun getUserProfile(uid: String): User? {
+        return try {
+            RetrofitClient.apiService.getProfile(userId = uid).body()?.data?.toUser()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun getOrCreateConversation(
+        bookId: String,
+        bookTitle: String,
+        otherUserId: String,
+        otherUserName: String
+    ): String {
+        val uid = currentUid()
+        val myProfile = AuthManager.getUserProfile(uid)
+        val myName = myProfile?.displayName ?: "User"
+        
+        return try {
+            val response = RetrofitClient.apiService.createConversation(
+                action = "create",
+                body = mapOf(
+                    "user_id" to uid,
+                    "other_user_id" to otherUserId,
+                    "other_user_name" to otherUserName,
+                    "book_id" to bookId,
+                    "book_title" to bookTitle
+                )
+            )
+            response.body()?.data?.id ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    override suspend fun sendMessage(conversationId: String, text: String): Message {
+        val uid = currentUid()
+        val myProfile = AuthManager.getUserProfile(uid)
+        val myName = myProfile?.displayName ?: "User"
+        
+        return try {
+            val response = RetrofitClient.apiService.sendMessage(
+                action = "send",
+                body = mapOf(
+                    "conversation_id" to conversationId,
+                    "user_id" to uid,
+                    "sender_name" to myName,
+                    "text" to text
+                )
+            )
+            response.body()?.data?.toMessage() ?: Message()
+        } catch (_: Exception) {
+            Message()
+        }
+    }
+
+    override suspend fun getConversations(): List<ChatConversation> {
+        val uid = currentUid()
+        return try {
+            RetrofitClient.apiService.getConversations(userId = uid).body()?.data.orEmpty().map { it.toChatConversation() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun claimBook(bookId: String, bookTitle: String, ownerId: String): ClaimRequest {
+        val uid = currentUid()
+        val myProfile = AuthManager.getUserProfile(uid)
+        val myName = myProfile?.displayName ?: "User"
+        val myEmail = myProfile?.email ?: ""
+        val myPhone = myProfile?.phone ?: ""
+        
+        val ownerProfile = AuthManager.getUserProfile(ownerId)
+        val ownerName = ownerProfile?.displayName ?: "Owner"
+
+        return try {
+            val response = RetrofitClient.apiService.createClaim(
+                action = "create",
+                body = mapOf(
+                    "book_id" to bookId,
+                    "book_title" to bookTitle,
+                    "claimer_id" to uid,
+                    "claimer_name" to myName,
+                    "claimer_email" to myEmail,
+                    "claimer_phone" to myPhone,
+                    "owner_id" to ownerId,
+                    "owner_name" to ownerName
+                )
+            )
+            response.body()?.data?.toClaimRequest() ?: ClaimRequest()
+        } catch (_: Exception) {
+            ClaimRequest()
+        }
+    }
+
+    override suspend fun getClaimRequest(claimRequestId: String): ClaimRequest? {
+        return try {
+            RetrofitClient.apiService.getClaim(claimId = claimRequestId).body()?.data?.toClaimRequest()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun confirmBookReceived(claimRequestId: String) {
+        val uid = currentUid()
+        try {
+            RetrofitClient.apiService.confirmBookReceived(
+                action = "confirm_received",
+                body = mapOf("claim_id" to claimRequestId, "user_id" to uid)
+            )
+        } catch (_: Exception) {}
+    }
+
+    override suspend fun confirmBookShared(claimRequestId: String) {
+        val uid = currentUid()
+        try {
+            RetrofitClient.apiService.confirmBookShared(
+                action = "confirm_shared",
+                body = mapOf("claim_id" to claimRequestId, "user_id" to uid)
+            )
+        } catch (_: Exception) {}
+    }
+}

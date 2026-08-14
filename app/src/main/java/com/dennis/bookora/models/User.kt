@@ -16,5 +16,7 @@ data class User(
     val bio: String = "",
     val shareContactByEmail: Boolean = true
 ) {
-    val fullName: String get() = "$firstName $lastName"
+    val uid: String get() = id
+    val fullName: String get() = "$firstName $lastName".trim()
+    val displayName: String get() = fullName.ifBlank { username }
 }

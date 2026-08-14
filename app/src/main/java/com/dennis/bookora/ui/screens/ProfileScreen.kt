@@ -40,7 +40,7 @@ import coil.compose.AsyncImage
 import com.dennis.bookora.BuildConfig
 import com.dennis.bookora.models.User
 import com.dennis.bookora.models.Book
-import com.dennis.bookora.repository.auth.FirebaseAuthManager
+import com.dennis.bookora.repository.auth.AuthManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -57,7 +57,7 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val initialCachedUser = remember { FirebaseAuthManager.getCachedUser() }
+    val initialCachedUser = remember { AuthManager.getCachedUser() }
     var isLoading by remember { mutableStateOf(initialCachedUser == null) }
     var isSaving by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
@@ -83,13 +83,13 @@ fun ProfileScreen(
 
     LaunchedEffect(Unit) {
         try {
-            FirebaseAuthManager.ensureInitialized(context)
-            val uid = FirebaseAuthManager.currentUser()?.uid
+            AuthManager.ensureInitialized(context)
+            val uid = AuthManager.currentUser()?.uid
             if (uid != null) {
                 val profile = kotlinx.coroutines.withTimeoutOrNull(3000L) {
-                    FirebaseAuthManager.getUserProfile(uid)
+                    AuthManager.getUserProfile(uid)
                 } ?: (initialCachedUser ?: run {
-                    val fbUser = FirebaseAuthManager.currentUser()
+                    val fbUser = AuthManager.currentUser()
                     val names = fbUser?.displayName?.split(" ") ?: emptyList()
                     User(
                         id = uid,
@@ -126,7 +126,7 @@ fun ProfileScreen(
     LaunchedEffect(currentUser?.id) {
         val uid = currentUser?.id ?: return@LaunchedEffect
         try {
-            val repo = com.dennis.bookora.repository.FirebaseBookRepository()
+            val repo = com.dennis.bookora.repository.ApiBookRepository()
             favorites = repo.getFavorites()
         } catch (_: Exception) {}
     }
@@ -140,8 +140,8 @@ fun ProfileScreen(
         usernameStatus = UsernameStatus.CHECKING
         delay(450)
         try {
-            val uid = FirebaseAuthManager.currentUser()?.uid
-            val available = uid != null && FirebaseAuthManager.isUsernameAvailable(username, uid)
+            val uid = AuthManager.currentUser()?.uid
+            val available = uid != null && AuthManager.isUsernameAvailable(username, uid)
             usernameStatus = if (available) UsernameStatus.AVAILABLE else UsernameStatus.TAKEN
         } catch (e: Exception) {
             usernameStatus = UsernameStatus.IDLE
@@ -319,13 +319,13 @@ fun ProfileScreen(
                                 scope.launch {
                                     isSaving = true
                                     try {
-                                        FirebaseAuthManager.ensureInitialized(context)
-                                        val uid = FirebaseAuthManager.currentUser()?.uid
+                                        AuthManager.ensureInitialized(context)
+                                        val uid = AuthManager.currentUser()?.uid
                                         if (uid != null) {
                                             var finalAvatarUrl = avatarUrl
                                             selectedImageUri?.let { uri ->
                                                 snackbarHostState.showSnackbar("Uploading image...")
-                                                finalAvatarUrl = FirebaseAuthManager.uploadProfileImage(uid, uri)
+                                                finalAvatarUrl = AuthManager.uploadProfileImage(uid, uri)
                                             }
 
                                             val updates = mapOf(
@@ -337,8 +337,8 @@ fun ProfileScreen(
                                                 "avatarUrl" to finalAvatarUrl,
                                                 "shareContactByEmail" to shareContactByEmail
                                             )
-                                            FirebaseAuthManager.updateUserProfile(uid, updates)
-                                            currentUser = FirebaseAuthManager.getUserProfile(uid, forceRefresh = true)
+                                            AuthManager.updateUserProfile(uid, updates)
+                                            currentUser = AuthManager.getUserProfile(uid, forceRefresh = true)
                                             avatarUrl = finalAvatarUrl
                                             selectedImageUri = null
                                             isEditing = false
@@ -384,7 +384,7 @@ fun ProfileScreen(
                         // unfavorite then reload favorites
                         scope.launch {
                             try {
-                                val repo = com.dennis.bookora.repository.FirebaseBookRepository()
+                                val repo = com.dennis.bookora.repository.ApiBookRepository()
                                 repo.toggleFavorite(id)
                                 favorites = repo.getFavorites()
                             } catch (_: Exception) {}
@@ -436,9 +436,9 @@ fun ProfileScreen(
                                 shareContactByEmail = newValue
                                 scope.launch {
                                     try {
-                                        val uid = FirebaseAuthManager.currentUser()?.uid
+                                        val uid = AuthManager.currentUser()?.uid
                                         if (uid != null) {
-                                            FirebaseAuthManager.updateUserProfile(uid, mapOf("shareContactByEmail" to newValue))
+                                            AuthManager.updateUserProfile(uid, mapOf("shareContactByEmail" to newValue))
                                         }
                                     } catch (e: Exception) {
                                         snackbarHostState.showSnackbar("Failed to update setting")

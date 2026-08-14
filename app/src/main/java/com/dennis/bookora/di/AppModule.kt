@@ -1,7 +1,7 @@
 package com.dennis.bookora.di
 
 import com.dennis.bookora.repository.BookRepository
-import com.dennis.bookora.repository.FirebaseBookRepository
+import com.dennis.bookora.repository.ApiBookRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -15,6 +15,6 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindBookRepository(
-        firebaseRepository: FirebaseBookRepository
+        apiRepository: ApiBookRepository
     ): BookRepository
 }

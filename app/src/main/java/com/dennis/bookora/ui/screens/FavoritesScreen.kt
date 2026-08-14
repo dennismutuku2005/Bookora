@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dennis.bookora.models.Book
-import com.dennis.bookora.repository.FirebaseBookRepository
+import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.ui.components.CleanBookCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,7 +25,7 @@ fun FavoritesScreen(
 ) {
     var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    val repo = remember { FirebaseBookRepository() }
+    val repo = remember { ApiBookRepository() }
 
     LaunchedEffect(Unit) {
         isLoading = true
