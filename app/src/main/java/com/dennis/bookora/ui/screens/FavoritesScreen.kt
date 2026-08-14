@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.ui.components.CleanBookCard
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,12 +27,18 @@ fun FavoritesScreen(
     var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val repo = remember { ApiBookRepository() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         isLoading = true
         try {
             favorites = repo.getFavorites()
-        } catch (_: Exception) {
+            if (favorites.isNotEmpty()) {
+                scope.launch { snackbarHostState.showSnackbar("❤️ Loaded ${favorites.size} favorite(s)") }
+            }
+        } catch (e: Exception) {
+            scope.launch { snackbarHostState.showSnackbar("❌ Failed to load favorites: ${e.message}") }
         } finally {
             isLoading = false
         }
@@ -47,7 +54,8 @@ fun FavoritesScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier

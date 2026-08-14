@@ -1,5 +1,7 @@
 package com.dennis.bookora.repository
 
+import android.content.Context
+import android.net.Uri
 import com.dennis.bookora.api.RetrofitClient
 import com.dennis.bookora.api.toBook
 import com.dennis.bookora.api.toNotification
@@ -19,11 +21,45 @@ import com.dennis.bookora.models.Notification
 import com.dennis.bookora.models.User
 import com.dennis.bookora.repository.auth.AuthSession
 import com.dennis.bookora.repository.auth.AuthManager
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import javax.inject.Inject
 
 class ApiBookRepository @Inject constructor() : BookRepository {
     private fun currentUid(): String =
         AuthManager.currentUser()?.uid ?: AuthSession.currentUserId() ?: throw IllegalStateException("Not logged in")
+
+    // Upload book cover image
+    suspend fun uploadBookCoverImage(context: Context, imageUri: Uri): String {
+        val uid = currentUid()
+        return try {
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+            val fileName = "book_${System.currentTimeMillis()}.jpg"
+            val file = java.io.File(context.cacheDir, fileName)
+            inputStream?.use { input ->
+                file.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            val requestBody = file.asRequestBody("image/jpeg".toMediaType())
+            val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+            val userIdPart = uid
+
+            val response = RetrofitClient.apiService.uploadImage(type = "book", userId = userIdPart, file = part)
+            
+            file.delete() // Clean up temp file
+            
+            if (response.isSuccessful && response.body()?.status == "success") {
+                response.body()?.data?.url ?: imageUri.toString()
+            } else {
+                throw Exception(response.body()?.message ?: "Upload failed")
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to upload image: ${e.message}")
+        }
+    }
 
     override suspend fun getCurrentUser(): User {
         val uid = currentUid()

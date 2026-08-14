@@ -1,7 +1,6 @@
 package com.dennis.bookora.ui.screens
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,6 +53,7 @@ fun CreateListingScreen(
     var isLoading by remember { mutableStateOf(bookId != null) }
     var condition by remember { mutableStateOf("Like New") }
     var categoryExpanded by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val categoriesList = listOf("Fiction", "Non-Fiction", "Self-Help", "Technology", "Science", "History", "Biography", "Children", "Romance", "Other")
 
@@ -84,7 +84,7 @@ fun CreateListingScreen(
                     }
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Failed to load book: ${e.message}", Toast.LENGTH_SHORT).show()
+                scope.launch { snackbarHostState.showSnackbar("❌ Failed to load book: ${e.message}") }
             } finally {
                 isLoading = false
             }
@@ -98,12 +98,16 @@ fun CreateListingScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { scaffoldPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(scaffoldPadding)
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
         if (onBack != null) {
             IconButton(onClick = onBack, modifier = Modifier.padding(bottom = 8.dp)) {
                 Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
@@ -345,11 +349,21 @@ fun CreateListingScreen(
                     try {
                         isPublishing = true
                         val user = AuthManager.currentUser() ?: run {
-                            Toast.makeText(context, "Please sign in to publish", Toast.LENGTH_SHORT).show()
+                            snackbarHostState.showSnackbar("Please sign in to publish")
                             return@launch
                         }
 
-                        val coverUrl = selectedImageUri?.toString() ?: existingCoverUrl
+                        var coverUrl = existingCoverUrl
+                        
+                        // Upload new image if selected
+                        if (selectedImageUri != null) {
+                            snackbarHostState.showSnackbar("Uploading book cover...")
+                            coverUrl = repo.uploadBookCoverImage(context, selectedImageUri!!)
+                            snackbarHostState.showSnackbar("Cover uploaded")
+                        }
+
+                        snackbarHostState.showSnackbar("Publishing your listing...")
+
                         val book = Book(
                             id = bookId ?: "",
                             title = title.trim(),
@@ -378,14 +392,14 @@ fun CreateListingScreen(
                             description = ""
                             location = ""
                             selectedImageUri = null
+                            snackbarHostState.showSnackbar("Listing published successfully!")
                         } else {
                             repo.updateBook(bookId, book)
+                            snackbarHostState.showSnackbar("Listing updated successfully!")
                             onSuccess?.invoke()
                         }
-
-                        Toast.makeText(context, if (bookId == null) "Listing published" else "Listing updated", Toast.LENGTH_SHORT).show()
                     } catch (e: Exception) {
-                        Toast.makeText(context, e.message ?: "Publish failed", Toast.LENGTH_SHORT).show()
+                        snackbarHostState.showSnackbar("${e.message ?: "Publish failed"}")
                     } finally {
                         isPublishing = false
                     }
@@ -407,5 +421,6 @@ fun CreateListingScreen(
         }
         
         Spacer(modifier = Modifier.height(100.dp))
+        }
     }
 }

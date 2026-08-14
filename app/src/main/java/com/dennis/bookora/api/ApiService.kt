@@ -3,12 +3,15 @@ package com.dennis.bookora.api
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.Category
 import com.dennis.bookora.models.User
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Query
 
 interface ApiService {
@@ -97,6 +100,15 @@ interface ApiService {
 
     @POST("claims.php")
     suspend fun rejectClaim(@Query("action") action: String = "reject", @Body body: Map<String, String>): Response<ApiEnvelope<ClaimApiResponse>>
+
+    // Image Upload
+    @Multipart
+    @POST("upload.php")
+    suspend fun uploadImage(
+        @Query("type") type: String = "book",
+        @Part("user_id") userId: String,
+        @Part file: MultipartBody.Part
+    ): Response<UploadResponse>
 }
 
 data class NotificationApiResponse(
@@ -118,6 +130,19 @@ data class StatsApiResponse(
     val favoritesCount: Int = 0,
     val booksShared: Int = 0,
     val unreadNotifications: Int = 0
+)
+
+data class UploadResponse(
+    val status: String = "error",
+    val message: String = "",
+    val data: UploadData? = null
+)
+
+data class UploadData(
+    val url: String = "",
+    val filename: String = "",
+    val size: Long = 0,
+    val mimeType: String = ""
 )
 
 fun NotificationApiResponse.toNotification(): com.dennis.bookora.models.Notification = com.dennis.bookora.models.Notification(

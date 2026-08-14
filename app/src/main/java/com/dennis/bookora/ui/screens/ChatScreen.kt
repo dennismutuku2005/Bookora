@@ -36,9 +36,20 @@ fun ChatScreen(
     val isLoading by vm.isLoading
     val otherUserName by vm.otherUserName
     val bookTitle by vm.bookTitle
+    val error by vm.error
 
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(error) {
+        if (error != null) {
+            scope.launch {
+                snackbarHostState.showSnackbar("❌ ${error ?: "Failed to send message"}")
+            }
+        }
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -73,6 +84,7 @@ fun ChatScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             Surface(
                 tonalElevation = 8.dp,
@@ -101,8 +113,11 @@ fun ChatScreen(
                     IconButton(
                         onClick = {
                             if (textInput.isNotBlank()) {
-                                vm.sendMessage(textInput)
-                                textInput = ""
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("📤 Sending message...")
+                                    vm.sendMessage(textInput)
+                                    textInput = ""
+                                }
                             }
                         },
                         modifier = Modifier
