@@ -1,19 +1,22 @@
 package com.dennis.bookora.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.dennis.bookora.repository.auth.AuthManager
 
 private enum class MainTab(val title: String) {
     Home("Home"),
@@ -37,6 +40,7 @@ fun MainScreen(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -45,7 +49,7 @@ fun MainScreen(
                     Text(
                         text = if (selectedTab == MainTab.Home) "Bookora" else selectedTab.title,
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     )
@@ -100,7 +104,9 @@ fun MainScreen(
             when (selectedTab) {
                 MainTab.Home -> HomeScreen(onBookClick)
                 MainTab.Search -> SearchScreen(onBookClick)
-                MainTab.Create -> CreateListingScreen()
+                MainTab.Create -> CreateListingScreen(
+                    onSuccess = { selectedTab = MainTab.Home }
+                )
                 MainTab.Notifications -> NotificationsScreen(
                     onNotificationClick = onNotificationClick,
                     onChatClick = onChatClick
@@ -119,22 +125,28 @@ fun MainScreen(
     if (showLogoutDialog) {
         Dialog(onDismissRequest = { showLogoutDialog = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface
+                modifier = Modifier.fillMaxWidth(0.9f),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 6.dp
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Logout", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Are you sure you want to logout from this session?", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(modifier = Modifier.height(20.dp))
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text("Logout", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Are you sure you want to logout from this session?", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(24.dp))
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                         TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = {
-                            showLogoutDialog = false
-                            onLogout()
-                        }) { Text("Logout") }
+                        Button(
+                            onClick = {
+                                showLogoutDialog = false
+                                AuthManager.logout()
+                                Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                                onLogout()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) { Text("Logout") }
                     }
                 }
             }
