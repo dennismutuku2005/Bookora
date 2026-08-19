@@ -35,10 +35,10 @@ fun FavoritesScreen(
         try {
             favorites = repo.getFavorites()
             if (favorites.isNotEmpty()) {
-                scope.launch { snackbarHostState.showSnackbar("❤️ Loaded ${favorites.size} favorite(s)") }
+                // Silent load success
             }
         } catch (e: Exception) {
-            scope.launch { snackbarHostState.showSnackbar("❌ Failed to load favorites: ${e.message}") }
+            scope.launch { snackbarHostState.showSnackbar("Failed to load favorites: ${e.message}") }
         } finally {
             isLoading = false
         }
