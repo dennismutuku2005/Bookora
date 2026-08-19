@@ -1,5 +1,6 @@
 package com.dennis.bookora.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,11 +11,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -23,21 +26,49 @@ import com.dennis.bookora.ui.components.CleanBookCard
 import com.dennis.bookora.ui.components.VerticalBookCard
 import com.dennis.bookora.ui.viewmodels.BooksViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onBookClick: (String) -> Unit) {
     val vm: BooksViewModel = hiltViewModel()
     val featured = vm.featured.value
     val all = vm.books.value
     val isLoading by vm.isLoading
+    val error by vm.error
+    val context = LocalContext.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+    PullToRefreshBox(
+        isRefreshing = isLoading,
+        onRefresh = { vm.reload() },
+        modifier = Modifier.fillMaxSize()
     ) {
-        if (isLoading) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            if (isLoading && all.isEmpty()) {
             HomeSkeleton()
+        } else if (error != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 80.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Error: $error",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { vm.reload() }) {
+                        Text("Retry")
+                    }
+                }
+            }
         } else if (all.isEmpty() && featured.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -78,30 +109,47 @@ fun HomeScreen(onBookClick: (String) -> Unit) {
                 Text(
                     "Featured Books",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Spacer(modifier = Modifier.height(14.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(featured) { book ->
-                        VerticalBookCard(book, onBookClick, onFavorite = { id -> vm.toggleFavorite(id) })
+                        VerticalBookCard(
+                            book = book,
+                            onBookClick = onBookClick,
+                            onFavorite = { id ->
+                                vm.toggleFavorite(id)
+                                Toast.makeText(context, if (book.isFavorite) "Removed from favorites" else "Added to favorites", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(28.dp))
             }
 
             if (all.isNotEmpty()) {
                 Text(
                     "Nearby Listings",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 all.forEach { book ->
-                    CleanBookCard(book, onBookClick, onFavorite = { id -> vm.toggleFavorite(id) })
+                    CleanBookCard(
+                        book = book,
+                        onBookClick = onBookClick,
+                        onFavorite = { id ->
+                            vm.toggleFavorite(id)
+                            Toast.makeText(context, if (book.isFavorite) "Removed from favorites" else "Added to favorites", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
             }
         }
     }
+}
 }
 
 @Composable
