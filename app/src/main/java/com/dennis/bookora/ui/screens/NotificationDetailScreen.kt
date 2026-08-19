@@ -5,11 +5,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dennis.bookora.models.ClaimRequest
+import com.dennis.bookora.models.ClaimStatus
 import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.repository.auth.AuthManager
 import kotlinx.coroutines.launch
@@ -39,40 +41,21 @@ fun NotificationDetailScreen(
 
     LaunchedEffect(notificationId) {
         try {
-            val db = Firebase.firestore
-            val doc = db.collection("notifications").document(currentUid)
-                .collection("items").document(notificationId).get().await()
+            val repo = ApiBookRepository()
+            val notifications = repo.getNotifications()
+            val notification = notifications.find { it.id == notificationId }
 
-            if (doc.exists()) {
-                title = doc.getString("title") ?: "Notification"
-                subtitle = doc.getString("subtitle") ?: ""
-                timeAgo = doc.getString("timeAgo") ?: ""
-                claimRequestId = doc.getString("claimRequestId") ?: ""
-                bookId = doc.getString("bookId") ?: ""
-                senderId = doc.getString("senderId") ?: ""
-                conversationId = doc.getString("conversationId") ?: ""
+            if (notification != null) {
+                title = notification.title
+                subtitle = notification.subtitle
+                timeAgo = notification.timeAgo
+                claimRequestId = notification.claimRequestId
+                bookId = notification.bookId
+                senderId = notification.senderId
+                conversationId = notification.conversationId
 
                 if (claimRequestId.isNotBlank()) {
-                    val claimDoc = db.collection("claimRequests").document(claimRequestId).get().await()
-                    if (claimDoc.exists()) {
-                        val d = claimDoc.data!!
-                        claimRequest = ClaimRequest(
-                            id = claimDoc.id,
-                            bookId = d["bookId"] as? String ?: "",
-                            bookTitle = d["bookTitle"] as? String ?: "",
-                            claimerId = d["claimerId"] as? String ?: "",
-                            claimerName = d["claimerName"] as? String ?: "",
-                            claimerEmail = d["claimerEmail"] as? String ?: "",
-                            claimerPhone = d["claimerPhone"] as? String ?: "",
-                            ownerId = d["ownerId"] as? String ?: "",
-                            ownerName = d["ownerName"] as? String ?: "",
-                            status = runCatching { ClaimStatus.valueOf(d["status"] as? String ?: "") }
-                                .getOrDefault(ClaimStatus.PENDING),
-                            timestamp = (d["timestamp"] as? Number)?.toLong() ?: 0L,
-                            confirmedByClaimer = d["confirmedByClaimer"] as? Boolean ?: false,
-                            confirmedByOwner = d["confirmedByOwner"] as? Boolean ?: false
-                        )
-                    }
+                    claimRequest = repo.getClaimRequest(claimRequestId)
                 }
             }
         } catch (_: Exception) {
@@ -167,36 +150,22 @@ fun NotificationDetailScreen(
                                     scope.launch {
                                         isConfirming = true
                                         try {
-                                            val db = Firebase.firestore
-                                            val docRef = db.collection("claimRequests").document(claim.id)
+                                            val repo = ApiBookRepository()
                                             if (isIClaimer) {
-                                                docRef.update("confirmedByClaimer", true).await()
+                                                repo.confirmBookReceived(claim.id)
                                             }
                                             if (isIOwner) {
-                                                docRef.update("confirmedByOwner", true).await()
-                                            }
-
-                                            // Check if both confirmed
-                                            val updatedDoc = docRef.get().await()
-                                            val cClaimer = updatedDoc.getBoolean("confirmedByClaimer") ?: false
-                                            val cOwner = updatedDoc.getBoolean("confirmedByOwner") ?: false
-
-                                            if (cClaimer && cOwner) {
-                                                docRef.update("status", ClaimStatus.COMPLETED.name).await()
-                                                snackbarHostState.showSnackbar("🎉 Both confirmed! Book exchange completed!")
-                                            } else {
-                                                docRef.update("status", if (isIClaimer) ClaimStatus.CONFIRMED_CLAIMER.name else ClaimStatus.CONFIRMED_OWNER.name).await()
-                                                snackbarHostState.showSnackbar("You confirmed! Waiting for the other party.")
+                                                repo.confirmBookShared(claim.id)
                                             }
 
                                             // Refresh
-                                            val refreshDoc = docRef.get().await()
-                                            val d = refreshDoc.data!!
-                                            claimRequest = claim.copy(
-                                                confirmedByClaimer = d["confirmedByClaimer"] as? Boolean ?: false,
-                                                confirmedByOwner = d["confirmedByOwner"] as? Boolean ?: false,
-                                                status = runCatching { ClaimStatus.valueOf(d["status"] as? String ?: "") }.getOrDefault(ClaimStatus.PENDING)
-                                            )
+                                            claimRequest = repo.getClaimRequest(claim.id)
+                                            
+                                            if (claimRequest?.status == ClaimStatus.COMPLETED) {
+                                                snackbarHostState.showSnackbar("Both confirmed! Book exchange completed.")
+                                            } else {
+                                                snackbarHostState.showSnackbar("You confirmed! Waiting for the other party.")
+                                            }
                                         } catch (e: Exception) {
                                             snackbarHostState.showSnackbar(e.message ?: "Error confirming")
                                         } finally {
