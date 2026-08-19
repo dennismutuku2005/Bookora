@@ -22,6 +22,9 @@ class BooksViewModel @Inject constructor(
     var isLoading = mutableStateOf(true)
         private set
 
+    var error = mutableStateOf<String?>(null)
+        private set
+
     init {
         reload()
     }
@@ -29,6 +32,7 @@ class BooksViewModel @Inject constructor(
     fun reload() {
         viewModelScope.launch {
             isLoading.value = true
+            error.value = null
             try {
                 val fetched = repo.getBooks()
                 // get user's favorites
@@ -48,7 +52,8 @@ class BooksViewModel @Inject constructor(
                 books.value = enriched
                 val fetchedFeatured = repo.getFeaturedBooks()
                 featured.value = fetchedFeatured.map { it.copy(isFavorite = favIds.contains(it.id)) }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                error.value = e.message ?: "Failed to load books"
             } finally {
                 isLoading.value = false
             }
