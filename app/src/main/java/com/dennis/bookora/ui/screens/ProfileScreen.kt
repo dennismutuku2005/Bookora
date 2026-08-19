@@ -36,11 +36,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import coil.compose.AsyncImage
 import com.dennis.bookora.BuildConfig
 import com.dennis.bookora.models.User
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.repository.auth.AuthManager
+import com.dennis.bookora.repository.auth.AuthSession
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -57,7 +59,7 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val initialCachedUser = remember { AuthManager.getCachedUser() }
+    val initialCachedUser = remember { AuthManager.currentUser() }
     var isLoading by remember { mutableStateOf(initialCachedUser == null) }
     var isSaving by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
@@ -89,16 +91,16 @@ fun ProfileScreen(
                 val profile = kotlinx.coroutines.withTimeoutOrNull(3000L) {
                     AuthManager.getUserProfile(uid)
                 } ?: (initialCachedUser ?: run {
-                    val fbUser = AuthManager.currentUser()
-                    val names = fbUser?.displayName?.split(" ") ?: emptyList()
+                    val user = AuthManager.currentUser()
+                    val names = user?.displayName?.split(" ") ?: emptyList()
                     User(
                         id = uid,
                         firstName = names.getOrNull(0) ?: "Book",
                         lastName = names.drop(1).joinToString(" ").ifBlank { "Reader" },
-                        username = fbUser?.email?.substringBefore("@") ?: "reader",
-                        email = fbUser?.email ?: "",
+                        username = user?.email?.substringBefore("@") ?: "reader",
+                        email = user?.email ?: "",
                         phone = "",
-                        avatarUrl = fbUser?.photoUrl?.toString() ?: "",
+                        avatarUrl = user?.avatarUrl ?: "",
                         memberSince = "",
                         rating = 0.0,
                         booksPosted = 0,
@@ -148,6 +150,35 @@ fun ProfileScreen(
         }
     }
 
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    fun refreshProfile() {
+        scope.launch {
+            try {
+                isRefreshing = true
+                val uid = AuthManager.currentUser()?.id ?: AuthSession.currentUserId()
+                if (uid != null) {
+                    val profile = AuthManager.getUserProfile(uid, forceRefresh = true)
+                    if (profile != null) {
+                        currentUser = profile
+                        firstName = profile.firstName
+                        lastName = profile.lastName
+                        username = profile.username
+                        phone = profile.phone
+                        bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast" }
+                        avatarUrl = profile.avatarUrl
+                        shareContactByEmail = profile.shareContactByEmail
+                    }
+                    val repo = com.dennis.bookora.repository.ApiBookRepository()
+                    favorites = repo.getFavorites()
+                }
+            } catch (_: Exception) {
+            } finally {
+                isRefreshing = false
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -158,18 +189,24 @@ fun ProfileScreen(
             return@Scaffold
         }
 
-        Column(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { refreshProfile() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
         ) {
-            // ---------- Header ----------
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 20.dp)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
             ) {
+                // ---------- Header ----------
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 20.dp)
+                ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ProfileAvatar(
                         initial = if (firstName.isNotEmpty()) firstName.first().uppercase() else "?",
@@ -325,7 +362,7 @@ fun ProfileScreen(
                                             var finalAvatarUrl = avatarUrl
                                             selectedImageUri?.let { uri ->
                                                 snackbarHostState.showSnackbar("Uploading image...")
-                                                finalAvatarUrl = AuthManager.uploadProfileImage(uid, uri)
+                                                finalAvatarUrl = AuthManager.uploadProfileImage(context, uid, uri)
                                             }
 
                                             val updates = mapOf(
@@ -497,6 +534,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
 }
 
 private enum class UsernameStatus { IDLE, CHECKING, AVAILABLE, TAKEN }
