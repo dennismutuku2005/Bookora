@@ -36,6 +36,7 @@ fun NotificationsScreen(
     val conversations by vm.conversations
     val notifications by vm.notifications
     val isLoading by vm.isLoading
+    val error by vm.error
 
     var selectedSection by remember { mutableStateOf(0) } // 0 = Chats, 1 = Alerts
 
@@ -82,6 +83,16 @@ fun NotificationsScreen(
         if (isLoading && conversations.isEmpty() && notifications.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
+            }
+        } else if (error != null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "Error: $error", color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { vm.loadData() }) {
+                        Text("Retry")
+                    }
+                }
             }
         } else {
             when (selectedSection) {
