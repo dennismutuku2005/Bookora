@@ -24,6 +24,9 @@ class InboxViewModel @Inject constructor(
     var isLoading = mutableStateOf(false)
         private set
 
+    var error = mutableStateOf<String?>(null)
+        private set
+
     init {
         loadData()
     }
@@ -31,10 +34,12 @@ class InboxViewModel @Inject constructor(
     fun loadData() {
         viewModelScope.launch {
             isLoading.value = true
+            error.value = null
             try {
                 conversations.value = repo.getConversations()
                 notifications.value = repo.getNotifications()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                error.value = e.message ?: "Failed to load data"
             } finally {
                 isLoading.value = false
             }
