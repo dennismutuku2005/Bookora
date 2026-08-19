@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dennis.bookora.models.Message
 import com.dennis.bookora.ui.viewmodels.ChatViewModel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -45,9 +46,7 @@ fun ChatScreen(
 
     LaunchedEffect(error) {
         if (error != null) {
-            scope.launch {
-                snackbarHostState.showSnackbar("❌ ${error ?: "Failed to send message"}")
-            }
+            snackbarHostState.showSnackbar(error ?: "Failed to send message")
         }
     }
 
@@ -114,7 +113,6 @@ fun ChatScreen(
                         onClick = {
                             if (textInput.isNotBlank()) {
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("📤 Sending message...")
                                     vm.sendMessage(textInput)
                                     textInput = ""
                                 }
