@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.dennis.bookora.api.RetrofitClient
 import com.dennis.bookora.api.toBook
+import com.dennis.bookora.api.toCategory
 import com.dennis.bookora.api.toNotification
 import com.dennis.bookora.api.toUser
 import com.dennis.bookora.api.toChatConversation
@@ -32,12 +33,15 @@ class ApiBookRepository @Inject constructor() : BookRepository {
 
     // Upload book cover image
     suspend fun uploadBookCoverImage(context: Context, imageUri: Uri): String {
-        val uid = currentUid()
+        val uid = AuthSession.currentUserId() ?: AuthManager.currentUser()?.id ?: "guest_user"
         return try {
             val inputStream = context.contentResolver.openInputStream(imageUri)
+                ?: throw Exception("Could not open selected image stream")
+            
             val fileName = "book_${System.currentTimeMillis()}.jpg"
             val file = java.io.File(context.cacheDir, fileName)
-            inputStream?.use { input ->
+            
+            inputStream.use { input ->
                 file.outputStream().use { output ->
                     input.copyTo(output)
                 }
@@ -45,16 +49,16 @@ class ApiBookRepository @Inject constructor() : BookRepository {
 
             val requestBody = file.asRequestBody("image/jpeg".toMediaType())
             val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
-            val userIdPart = uid
 
-            val response = RetrofitClient.apiService.uploadImage(type = "book", userId = userIdPart, file = part)
+            val response = RetrofitClient.apiService.uploadImage(type = "book", userId = uid, file = part)
             
             file.delete() // Clean up temp file
             
             if (response.isSuccessful && response.body()?.status == "success") {
                 response.body()?.data?.url ?: imageUri.toString()
             } else {
-                throw Exception(response.body()?.message ?: "Upload failed")
+                val errorMsg = response.body()?.message ?: "Server returned error code (${response.code()})"
+                throw Exception(errorMsg)
             }
         } catch (e: Exception) {
             throw Exception("Failed to upload image: ${e.message}")
