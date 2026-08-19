@@ -22,6 +22,9 @@ class MyListingsViewModel @Inject constructor(
     private val _isLoading = mutableStateOf(true)
     val isLoading: State<Boolean> = _isLoading
 
+    private val _error = mutableStateOf<String?>(null)
+    val error: State<String?> = _error
+
     init {
         loadListings()
     }
@@ -29,13 +32,14 @@ class MyListingsViewModel @Inject constructor(
     fun loadListings() {
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
             try {
                 val uid = AuthManager.currentUser()?.uid
                 if (uid != null) {
                     _listings.value = repository.getMyBooks(uid)
                 }
             } catch (e: Exception) {
-                // Handle error
+                _error.value = e.message ?: "Failed to load listings"
             } finally {
                 _isLoading.value = false
             }
