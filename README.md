@@ -8,14 +8,14 @@ Bookora is a simple, friendly community app for sharing and exchanging books.
 
 ## Overview
 
-Bookora makes it easy to list books you want to give away or exchange, discover nearby listings, and connect with other readers. The app uses Firebase for Authentication, Firestore for data and Storage for images.
+Bookora makes it easy to list books you want to give away or exchange, discover nearby listings, and connect with other readers.
 
 ## Key Features
 
-- User registration and login (Email/Password + Google Sign-In)
+- User registration and login
 - Editable user profiles with username, phone number, bio and avatar
-- Post book listings with cover images (uploads to Firebase Storage)
-- Browse, search and feature listings (backed by Firestore)
+- Post book listings with cover images
+- Browse, search and feature listings
 - Lightweight, clean UI built with Jetpack Compose
 ## Dedication
 
