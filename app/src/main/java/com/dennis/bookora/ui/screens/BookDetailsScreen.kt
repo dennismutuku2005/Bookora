@@ -129,7 +129,7 @@ fun BookDetailsScreen(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = "📖 You are the owner of this listing",
+                                        text = "You are the owner of this listing",
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -213,7 +213,7 @@ fun BookDetailsScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "⚠️ Could not load book",
+                            text = "Could not load book",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
@@ -245,7 +245,7 @@ fun BookDetailsScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(320.dp)
+                                .height(340.dp)
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -253,8 +253,11 @@ fun BookDetailsScreen(
                                 AsyncImage(
                                     model = b.coverUrl,
                                     contentDescription = b.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                                    modifier = Modifier
+                                        .fillMaxHeight(0.92f)
+                                        .aspectRatio(2f / 3f)
+                                        .clip(RoundedCornerShape(16.dp)),
+                                    contentScale = ContentScale.Fit
                                 )
                             } else {
                                 Image(
