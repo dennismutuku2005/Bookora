@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.rounded.Notifications
@@ -23,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.dennis.bookora.models.ChatConversation
 import com.dennis.bookora.models.Notification
 import com.dennis.bookora.ui.viewmodels.InboxViewModel
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -44,115 +47,131 @@ fun NotificationsScreen(
         vm.loadData()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+    PullToRefreshBox(
+        isRefreshing = isLoading,
+        onRefresh = { vm.loadData() },
+        modifier = Modifier.fillMaxSize()
     ) {
-        // Tab Row for Chats / Alerts
-        TabRow(
-            selectedTabIndex = selectedSection,
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clip(RoundedCornerShape(14.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Tab(
-                selected = selectedSection == 0,
-                onClick = { selectedSection = 0 },
-                text = {
-                    Text(
-                        text = "Chats (${conversations.size})",
-                        fontWeight = if (selectedSection == 0) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            )
-            Tab(
-                selected = selectedSection == 1,
-                onClick = { selectedSection = 1 },
-                text = {
-                    Text(
-                        text = "Alerts (${notifications.size})",
-                        fontWeight = if (selectedSection == 1) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (isLoading && conversations.isEmpty() && notifications.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (error != null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "Error: $error", color = MaterialTheme.colorScheme.error)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { vm.loadData() }) {
-                        Text("Retry")
+            // Tab Row for Chats / Alerts
+            TabRow(
+                selectedTabIndex = selectedSection,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clip(RoundedCornerShape(14.dp))
+            ) {
+                Tab(
+                    selected = selectedSection == 0,
+                    onClick = { selectedSection = 0 },
+                    text = {
+                        Text(
+                            text = "Chats (${conversations.size})",
+                            fontWeight = if (selectedSection == 0) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
-                }
+                )
+                Tab(
+                    selected = selectedSection == 1,
+                    onClick = { selectedSection = 1 },
+                    text = {
+                        Text(
+                            text = "Alerts (${notifications.size})",
+                            fontWeight = if (selectedSection == 1) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                )
             }
-        } else {
-            when (selectedSection) {
-                0 -> {
-                    // Chats list
-                    if (conversations.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "💬 No active chats yet",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Browse books and tap Message to start a conversation!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(conversations) { convo ->
-                                ChatConversationItem(convo = convo, onClick = { onChatClick(convo.id) })
-                            }
+    
+            Spacer(modifier = Modifier.height(16.dp))
+    
+            if (isLoading && conversations.isEmpty() && notifications.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (error != null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = "Error: $error", color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { vm.loadData() }) {
+                            Text("Retry")
                         }
                     }
                 }
-                1 -> {
-                    // Notifications list
-                    if (notifications.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "🔔 No notifications yet",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Claim requests and updates will appear here.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
+            } else {
+                when (selectedSection) {
+                    0 -> {
+                        // Chats list
+                        if (conversations.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "💬 No active chats yet",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Browse books and tap Message to start a conversation!",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(conversations) { convo ->
+                                    ChatConversationItem(convo = convo, onClick = { onChatClick(convo.id) })
+                                }
                             }
                         }
-                    } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(notifications) { notif ->
-                                NotificationItemCard(
-                                    notification = notif,
-                                    onClick = {
-                                        if (notif.type == "chat" && notif.conversationId.isNotBlank()) {
-                                            onChatClick(notif.conversationId)
-                                        } else {
-                                            onNotificationClick(notif.id)
+                    }
+                    1 -> {
+                        // Notifications list
+                        if (notifications.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "🔔 No notifications yet",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Claim requests and updates will appear here.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(notifications) { notif ->
+                                    NotificationItemCard(
+                                        notification = notif,
+                                        onClick = {
+                                            if (notif.type == "chat" && notif.conversationId.isNotBlank()) {
+                                                onChatClick(notif.conversationId)
+                                            } else {
+                                                onNotificationClick(notif.id)
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
                     }
