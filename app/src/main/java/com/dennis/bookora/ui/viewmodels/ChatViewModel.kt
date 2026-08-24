@@ -48,11 +48,13 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             while (true) {
                 try {
-                    isLoading.value = messages.value.isEmpty()
-                    messages.value = repo.getMessages(conversationId)
+                    val fetched = repo.getMessages(conversationId)
+                    messages.value = fetched
+                    isLoading.value = false
                     error.value = null
                 } catch (e: Exception) {
                     error.value = e.message
+                    isLoading.value = false
                 }
                 // Poll every 2 seconds for new messages
                 delay(2000)
