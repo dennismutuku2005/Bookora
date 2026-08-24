@@ -1,6 +1,7 @@
 package com.dennis.bookora.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -83,8 +86,56 @@ fun ChatScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        bottomBar = {
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        val isDark = isSystemInDarkTheme()
+        val chatBg = if (isDark) Color(0xFF0F1C24) else Color(0xFFEFEAE2)
+
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(chatBg)
+                .imePadding()
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                if (isLoading && messages.isEmpty()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (messages.isEmpty()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "💬 No messages yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (isDark) Color(0xFF8696A0) else Color(0xFF667781)
+                        )
+                        Text(
+                            text = "Say hello to arrange pickup or exchange!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isDark) Color(0xFF8696A0).copy(alpha = 0.7f) else Color(0xFF667781).copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(messages) { msg ->
+                            MessageBubble(msg, isDark)
+                        }
+                    }
+                }
+            }
+
             Surface(
                 tonalElevation = 8.dp,
                 shadowElevation = 8.dp,
@@ -93,6 +144,7 @@ fun ChatScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -132,92 +184,67 @@ fun ChatScreen(
                 }
             }
         }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            if (isLoading && messages.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (messages.isEmpty()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "💬 No messages yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Say hello to arrange pickup or exchange!",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(messages) { msg ->
-                        MessageBubble(msg)
-                    }
-                }
-            }
-        }
     }
 }
 
 @Composable
-fun MessageBubble(msg: Message) {
+fun MessageBubble(msg: Message, isDark: Boolean) {
     val alignment = if (msg.isMine) Alignment.CenterEnd else Alignment.CenterStart
-    val bubbleColor = if (msg.isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val textColor = if (msg.isMine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val bubbleColor = if (msg.isMine) {
+        if (isDark) Color(0xFF005C4B) else Color(0xFFD9FDD3)
+    } else {
+        if (isDark) Color(0xFF202C33) else Color(0xFFFFFFFF)
+    }
+    val textColor = if (isDark) Color(0xFFE9EDEF) else Color(0xFF111B21)
+    val timeColor = if (isDark) Color(0xFF8696A0) else Color(0xFF667781)
     val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
 
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
         contentAlignment = alignment
     ) {
         Surface(
             shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = if (msg.isMine) 18.dp else 4.dp,
-                bottomEnd = if (msg.isMine) 4.dp else 18.dp
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (msg.isMine) 16.dp else 2.dp,
+                bottomEnd = if (msg.isMine) 2.dp else 16.dp
             ),
             color = bubbleColor,
             tonalElevation = 1.dp,
-            modifier = Modifier.widthIn(max = 280.dp)
+            shadowElevation = 0.5.dp,
+            modifier = Modifier.widthIn(max = 290.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                if (!msg.isMine && msg.senderName.isNotBlank()) {
-                    Text(
-                        text = msg.senderName,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 Text(
                     text = msg.text,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = textColor
+                    color = textColor,
+                    lineHeight = 20.sp
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (msg.timestamp > 0) timeFormat.format(Date(msg.timestamp)) else "",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    color = textColor.copy(alpha = 0.7f),
-                    modifier = Modifier.align(Alignment.End)
-                )
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (msg.timestamp > 0) timeFormat.format(Date(msg.timestamp)) else "",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = timeColor
+                    )
+                    if (msg.isMine) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (msg.read) Icons.Default.DoneAll else Icons.Default.Check,
+                            contentDescription = if (msg.read) "Read" else "Sent",
+                            tint = if (msg.read) Color(0xFF53BDEB) else timeColor,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
             }
         }
     }
