@@ -109,7 +109,10 @@ class ApiBookRepository @Inject constructor() : BookRepository {
 
     override suspend fun getMessages(conversationId: String): List<Message> {
         return try {
-            RetrofitClient.apiService.getMessages(conversationId = conversationId).body()?.data.orEmpty().map { it.toMessage() }
+            val uid = currentUid()
+            RetrofitClient.apiService.getMessages(conversationId = conversationId).body()?.data.orEmpty().map {
+                it.toMessage().copy(isMine = it.senderId == uid)
+            }
         } catch (_: Exception) {
             emptyList()
         }
@@ -251,7 +254,7 @@ class ApiBookRepository @Inject constructor() : BookRepository {
                     "text" to text
                 )
             )
-            response.body()?.data?.toMessage() ?: Message()
+            response.body()?.data?.toMessage()?.copy(isMine = true) ?: Message()
         } catch (_: Exception) {
             Message()
         }
