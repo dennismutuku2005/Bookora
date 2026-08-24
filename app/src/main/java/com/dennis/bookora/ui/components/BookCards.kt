@@ -19,10 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -30,6 +32,9 @@ import com.dennis.bookora.R
 import com.dennis.bookora.models.Book
 import com.dennis.bookora.models.ListingCondition
 import com.dennis.bookora.models.ListingType
+import com.dennis.bookora.ui.theme.BookoraTheme
+
+// ---------- Shared bits ----------
 
 // ---------- Shared bits ----------
 
@@ -170,12 +175,17 @@ fun VerticalBookCard(book: Book, onBookClick: (String) -> Unit, onFavorite: (Str
     Surface(
         modifier = Modifier
             .width(165.dp)
-            .padding(bottom = 4.dp),
+            .padding(bottom = 8.dp)
+            .graphicsLayer {
+                rotationX = 3f
+                rotationY = -2f
+                cameraDistance = 12f * density
+            },
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp,
         onClick = { onBookClick(book.id) }
     ) {
         Column {
@@ -251,12 +261,17 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit, onFavorite: (String
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp)
+            .graphicsLayer {
+                rotationX = 2f
+                rotationY = -1f
+                cameraDistance = 12f * density
+            },
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        tonalElevation = 2.dp,
-        shadowElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        tonalElevation = 4.dp,
+        shadowElevation = 6.dp,
         onClick = { onBookClick(book.id) }
     ) {
         Row(
@@ -338,6 +353,28 @@ fun CleanBookCard(book: Book, onBookClick: (String) -> Unit, onFavorite: (String
                     )
                 }
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BookCardsPreview() {
+    val dummyBook = Book(
+        id = "1",
+        title = "The Great Gatsby",
+        author = "F. Scott Fitzgerald",
+        category = "Classic",
+        condition = ListingCondition.GOOD,
+        location = "Nairobi, KE",
+        ownerUsername = "dennis",
+        listingType = ListingType.EXCHANGE
+    )
+    BookoraTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            VerticalBookCard(book = dummyBook, onBookClick = {})
+            Spacer(modifier = Modifier.height(20.dp))
+            CleanBookCard(book = dummyBook, onBookClick = {})
         }
     }
 }
