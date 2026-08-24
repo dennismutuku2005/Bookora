@@ -342,7 +342,7 @@ fun RegisterScreen(
                 OutlinedButton(
                     onClick = {
                         val credentialManager = CredentialManager.create(context)
-                        val webClientId = "689139598285-d6dldfsqn4d1jld6u9j1480f2dflch64.apps.googleusercontent.com"
+                        val webClientId = "885976156982-pvb8071f6tppo6gra1ouemr2klmuv7rr.apps.googleusercontent.com"
                         val googleIdOption = GetGoogleIdOption.Builder()
                             .setFilterByAuthorizedAccounts(false)
                             .setServerClientId(webClientId)
