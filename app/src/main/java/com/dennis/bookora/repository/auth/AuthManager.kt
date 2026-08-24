@@ -120,6 +120,32 @@ object AuthManager {
 
     suspend fun signInWithGoogle(idToken: String): Boolean = false
 
+    suspend fun loginWithGoogle(email: String, firstName: String, lastName: String): Result<User> {
+        return try {
+            val response = RetrofitClient.apiService.loginWithGoogle(
+                body = mapOf(
+                    "email" to email,
+                    "firstName" to firstName,
+                    "lastName" to lastName
+                )
+            )
+            if (response.isSuccessful) {
+                val user = response.body()?.data?.toUser()
+                if (user != null) {
+                    cachedUser = user
+                    AuthSession.saveUser(user)
+                    Result.success(user)
+                } else {
+                    Result.failure(Exception("Google login succeeded but user data was missing"))
+                }
+            } else {
+                Result.failure(Exception(parseError(response)))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun logout() {
         cachedUser = null
         AuthSession.clear()
