@@ -170,8 +170,10 @@ object AuthManager {
         val response = RetrofitClient.apiService.getProfile(userId = uid)
         val user = response.body()?.data?.toUser()
         if (user != null) {
-            cachedUser = user
-            AuthSession.saveUser(user)
+            if (uid == AuthSession.currentUserId()) {
+                cachedUser = user
+                AuthSession.saveUser(user)
+            }
         }
         return user
     }
@@ -188,8 +190,10 @@ object AuthManager {
         val response = RetrofitClient.apiService.updateProfile(action = "update", body = payload)
         val user = response.body()?.data?.toUser()
         if (user != null) {
-            cachedUser = user
-            AuthSession.saveUser(user)
+            if (uid == AuthSession.currentUserId()) {
+                cachedUser = user
+                AuthSession.saveUser(user)
+            }
         }
     }
 }
