@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "885976156982",
+    "project_id": "bookora-2a84f",
+    "storage_bucket": "bookora-2a84f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:885976156982:android:9ab52ab3d730697d0c8197",
+        "android_client_info": {
+          "package_name": "com.dennis.bookora"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "885976156982-sk5miv2q4i54uc6043c92hif3vja8gu5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dennis.bookora",
+            "certificate_hash": "06fc5e2168eb302a3388489aa8f7dd0ef677578a"
+          }
+        },
+        {
+          "client_id": "885976156982-pvb8071f6tppo6gra1ouemr2klmuv7rr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8C_ewhSxKLH9mHm2Bi0uldsFpnRVNJfo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "885976156982-pvb8071f6tppo6gra1ouemr2klmuv7rr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
