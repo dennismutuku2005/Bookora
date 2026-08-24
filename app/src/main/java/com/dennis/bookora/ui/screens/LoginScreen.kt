@@ -26,6 +26,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.CustomCredential
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.dennis.bookora.R
 import com.dennis.bookora.repository.auth.AuthManager
 import com.dennis.bookora.ui.theme.BookoraTheme
@@ -206,6 +213,104 @@ fun LoginScreen(
                         Text(
                             text = "Login",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+                    Text(
+                        text = "OR",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        val credentialManager = CredentialManager.create(context)
+                        val webClientId = "689139598285-d6dldfsqn4d1jld6u9j1480f2dflch64.apps.googleusercontent.com"
+                        val googleIdOption = GetGoogleIdOption.Builder()
+                            .setFilterByAuthorizedAccounts(false)
+                            .setServerClientId(webClientId)
+                            .setAutoSelectEnabled(false)
+                            .build()
+                        val request = GetCredentialRequest.Builder()
+                            .addCredentialOption(googleIdOption)
+                            .build()
+                        scope.launch {
+                            isLoading.value = true
+                            try {
+                                val result = credentialManager.getCredential(context, request)
+                                val credential = result.credential
+                                if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                                    val emailVal = googleIdTokenCredential.id
+                                    val displayName = googleIdTokenCredential.displayName ?: ""
+                                    val nameParts = displayName.split(" ", limit = 2)
+                                    val firstNameVal = nameParts.getOrNull(0) ?: ""
+                                    val lastNameVal = nameParts.getOrNull(1) ?: ""
+                                    
+                                    AuthManager.ensureInitialized(context)
+                                    val apiResult = AuthManager.loginWithGoogle(emailVal, firstNameVal, lastNameVal)
+                                    if (apiResult.isSuccess) {
+                                        val user = apiResult.getOrNull()
+                                        val name = user?.firstName?.ifBlank { user.username } ?: "user"
+                                        Toast.makeText(context, "Welcome, $name", Toast.LENGTH_SHORT).show()
+                                        onLoginSuccess()
+                                    } else {
+                                        val err = apiResult.exceptionOrNull()?.message ?: "Google Sign-In failed"
+                                        snackbarHostState.showSnackbar(err)
+                                    }
+                                } else {
+                                    snackbarHostState.showSnackbar("Unexpected credential type")
+                                }
+                            } catch (e: GetCredentialException) {
+                                snackbarHostState.showSnackbar("Google Sign-In cancelled")
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Error: ${e.message}")
+                            } finally {
+                                isLoading.value = false
+                            }
+                        }
+                    },
+                    enabled = !isLoading.value,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_google),
+                            contentDescription = "Google Logo",
+                            modifier = Modifier.size(24.dp),
+                            tint = androidx.compose.ui.graphics.Color.Unspecified
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Continue with Google",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
