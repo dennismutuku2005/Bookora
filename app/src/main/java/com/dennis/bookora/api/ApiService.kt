@@ -115,17 +115,17 @@ interface ApiService {
 }
 
 data class NotificationApiResponse(
-    val id: String = "",
-    val title: String = "",
-    val subtitle: String = "",
-    val timeAgo: String = "",
-    val isRead: Boolean = false,
-    val type: String = "notification",
-    val conversationId: String = "",
-    val senderId: String = "",
-    val bookId: String = "",
-    val claimRequestId: String = "",
-    val timestamp: Long = 0L
+    val id: String? = "",
+    val title: String? = "",
+    val subtitle: String? = "",
+    val timeAgo: String? = "",
+    val isRead: Boolean? = false,
+    val type: String? = "notification",
+    val conversationId: String? = "",
+    val senderId: String? = "",
+    val bookId: String? = "",
+    val claimRequestId: String? = "",
+    val timestamp: Long? = 0L
 )
 
 data class StatsApiResponse(
@@ -149,15 +149,15 @@ data class UploadData(
 )
 
 fun NotificationApiResponse.toNotification(): com.dennis.bookora.models.Notification = com.dennis.bookora.models.Notification(
-    id = id,
-    title = title,
-    subtitle = subtitle,
-    timeAgo = timeAgo,
-    isRead = isRead,
-    type = type,
-    conversationId = conversationId,
-    senderId = senderId,
-    bookId = bookId,
-    claimRequestId = claimRequestId,
-    timestamp = timestamp
+    id = id ?: "",
+    title = title ?: "",
+    subtitle = subtitle ?: "",
+    timeAgo = timeAgo ?: "",
+    isRead = isRead ?: false,
+    type = type ?: "notification",
+    conversationId = conversationId ?: "",
+    senderId = senderId ?: "",
+    bookId = bookId ?: "",
+    claimRequestId = claimRequestId ?: "",
+    timestamp = timestamp ?: 0L
 )
