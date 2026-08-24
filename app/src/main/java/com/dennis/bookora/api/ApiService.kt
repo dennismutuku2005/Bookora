@@ -21,6 +21,9 @@ interface ApiService {
     @POST("auth.php")
     suspend fun register(@Query("action") action: String = "register", @Body body: @JvmSuppressWildcards Map<String, String>): Response<ApiEnvelope<UserApiResponse>>
 
+    @POST("auth.php")
+    suspend fun loginWithGoogle(@Query("action") action: String = "google_login", @Body body: @JvmSuppressWildcards Map<String, String>): Response<ApiEnvelope<UserApiResponse>>
+
     @GET("profile.php")
     suspend fun getProfile(@Query("action") action: String = "get", @Query("user_id") userId: String): Response<ApiEnvelope<UserApiResponse>>
 
