@@ -100,6 +100,11 @@ dependencies {
     implementation(libs.androidx.credentials.play.services)
     implementation(libs.google.identity.googleid)
 
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+
     // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

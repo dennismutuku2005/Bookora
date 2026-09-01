@@ -16,51 +16,31 @@ import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.repository.auth.AuthManager
 import kotlinx.coroutines.launch
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dennis.bookora.ui.viewmodels.NotificationDetailViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationDetailScreen(
     notificationId: String,
     onBack: () -> Unit = {},
-    onOpenChat: (String) -> Unit = {}
+    onOpenChat: (String) -> Unit = {},
+    viewModel: NotificationDetailViewModel = hiltViewModel()
 ) {
-    var title by remember { mutableStateOf("Notification Details") }
-    var subtitle by remember { mutableStateOf("") }
-    var timeAgo by remember { mutableStateOf("") }
-    var claimRequestId by remember { mutableStateOf("") }
-    var bookId by remember { mutableStateOf("") }
-    var senderId by remember { mutableStateOf("") }
-    var conversationId by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
-
-    var claimRequest by remember { mutableStateOf<ClaimRequest?>(null) }
-    var isConfirming by remember { mutableStateOf(false) }
-
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     val currentUid = AuthManager.currentUser()?.uid ?: ""
 
     LaunchedEffect(notificationId) {
-        try {
-            val repo = ApiBookRepository()
-            val notifications = repo.getNotifications()
-            val notification = notifications.find { it.id == notificationId }
+        viewModel.loadNotification(notificationId)
+    }
 
-            if (notification != null) {
-                title = notification.title
-                subtitle = notification.subtitle
-                timeAgo = notification.timeAgo
-                claimRequestId = notification.claimRequestId
-                bookId = notification.bookId
-                senderId = notification.senderId
-                conversationId = notification.conversationId
-
-                if (claimRequestId.isNotBlank()) {
-                    claimRequest = repo.getClaimRequest(claimRequestId)
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is NotificationDetailViewModel.UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(event.message)
                 }
             }
-        } catch (_: Exception) {
-        } finally {
-            isLoading = false
         }
     }
 
@@ -83,7 +63,7 @@ fun NotificationDetailScreen(
                 .padding(paddingValues)
                 .padding(24.dp)
         ) {
-            if (isLoading) {
+            if (viewModel.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 Column(
@@ -91,18 +71,18 @@ fun NotificationDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     Text(
-                        text = title,
+                        text = viewModel.title,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = subtitle,
+                        text = viewModel.subtitle,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (timeAgo.isNotBlank()) {
+                    if (viewModel.timeAgo.isNotBlank()) {
                         Text(
-                            text = "Received $timeAgo",
+                            text = "Received ${viewModel.timeAgo}",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -111,8 +91,8 @@ fun NotificationDetailScreen(
                     HorizontalDivider()
 
                     // Claim Request Details & Double-Confirmation
-                    if (claimRequest != null) {
-                        val claim = claimRequest!!
+                    if (viewModel.claimRequest != null) {
+                        val claim = viewModel.claimRequest!!
                         val isIClaimer = (currentUid == claim.claimerId)
                         val isIOwner = (currentUid == claim.ownerId)
 
@@ -147,38 +127,14 @@ fun NotificationDetailScreen(
                         if (claim.status != ClaimStatus.COMPLETED) {
                             Button(
                                 onClick = {
-                                    scope.launch {
-                                        isConfirming = true
-                                        try {
-                                            val repo = ApiBookRepository()
-                                            if (isIClaimer) {
-                                                repo.confirmBookReceived(claim.id)
-                                            }
-                                            if (isIOwner) {
-                                                repo.confirmBookShared(claim.id)
-                                            }
-
-                                            // Refresh
-                                            claimRequest = repo.getClaimRequest(claim.id)
-                                            
-                                            if (claimRequest?.status == ClaimStatus.COMPLETED) {
-                                                snackbarHostState.showSnackbar("Both confirmed! Book exchange completed.")
-                                            } else {
-                                                snackbarHostState.showSnackbar("You confirmed! Waiting for the other party.")
-                                            }
-                                        } catch (e: Exception) {
-                                            snackbarHostState.showSnackbar(e.message ?: "Error confirming")
-                                        } finally {
-                                            isConfirming = false
-                                        }
-                                    }
+                                    viewModel.confirmAction(isIClaimer, isIOwner)
                                 },
-                                enabled = !isConfirming &&
+                                enabled = !viewModel.isConfirming &&
                                         ((isIClaimer && !claim.confirmedByClaimer) || (isIOwner && !claim.confirmedByOwner)),
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = MaterialTheme.shapes.large
                             ) {
-                                if (isConfirming) {
+                                if (viewModel.isConfirming) {
                                     CircularProgressIndicator(modifier = Modifier.size(18.dp))
                                 } else {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null)

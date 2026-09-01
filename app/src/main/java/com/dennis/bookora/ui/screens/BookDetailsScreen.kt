@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.dennis.bookora.R
 import com.dennis.bookora.models.ListingType
+import com.dennis.bookora.models.ClaimStatus
 import com.dennis.bookora.ui.viewmodels.BookDetailViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -155,37 +156,66 @@ fun BookDetailsScreen(
                             }
 
                             // Claim button
-                            Button(
-                                onClick = {
-                                    vm.claimBook(
-                                        onSuccess = { claim, convoId ->
-                                            scope.launch {
-                                                val result = snackbarHostState.showSnackbar(
-                                                    message = "Request sent! Private chat opened.",
-                                                    actionLabel = "Open Chat"
-                                                )
-                                                if (result == SnackbarResult.ActionPerformed) {
-                                                    onOpenChat(convoId)
-                                                }
-                                            }
-                                        },
-                                        onError = { err ->
-                                            scope.launch { snackbarHostState.showSnackbar(err) }
-                                        }
+                            val claimState by vm.claimState
+                            val hasClaimed = claimState != null && claimState?.status != ClaimStatus.REJECTED
+
+                            if (hasClaimed) {
+                                val statusText = when (claimState?.status) {
+                                    ClaimStatus.PENDING -> "Claim Pending"
+                                    ClaimStatus.ACCEPTED -> "Claim Accepted"
+                                    ClaimStatus.CONFIRMED_CLAIMER, ClaimStatus.CONFIRMED_OWNER -> "In Exchange"
+                                    ClaimStatus.COMPLETED -> "Claim Completed"
+                                    else -> "Claimed"
+                                }
+                                Button(
+                                    onClick = {},
+                                    enabled = false,
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .height(52.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        disabledContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                        disabledContentColor = MaterialTheme.colorScheme.primary
                                     )
-                                },
-                                enabled = !isClaiming,
-                                modifier = Modifier
-                                    .weight(1.2f)
-                                    .height(52.dp),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                if (isClaiming) {
-                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
-                                } else {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (book!!.listingType == ListingType.GIVEAWAY) "Claim Now" else "Request Exchange")
+                                    Text(statusText)
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        vm.claimBook(
+                                            onSuccess = { claim, convoId ->
+                                                scope.launch {
+                                                    val result = snackbarHostState.showSnackbar(
+                                                        message = "Request sent! Private chat opened.",
+                                                        actionLabel = "Open Chat"
+                                                    )
+                                                    if (result == SnackbarResult.ActionPerformed) {
+                                                        onOpenChat(convoId)
+                                                    }
+                                                }
+                                            },
+                                            onError = { err ->
+                                                scope.launch { snackbarHostState.showSnackbar(err) }
+                                            }
+                                        )
+                                    },
+                                    enabled = !isClaiming,
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .height(52.dp),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    if (isClaiming) {
+                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
+                                    } else {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(if (book!!.listingType == ListingType.GIVEAWAY) "Claim Now" else "Request Exchange")
+                                    }
                                 }
                             }
                         }

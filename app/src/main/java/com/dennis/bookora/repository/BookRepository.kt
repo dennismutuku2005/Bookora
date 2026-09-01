@@ -24,6 +24,7 @@ interface BookRepository {
     suspend fun getMyBooks(userId: String): List<Book>
     suspend fun toggleFavorite(bookId: String)
     suspend fun getUserProfile(uid: String): User?
+    suspend fun uploadBookCoverImage(context: android.content.Context, imageUri: android.net.Uri): String
 
     // Chat
     suspend fun getOrCreateConversation(
@@ -38,6 +39,7 @@ interface BookRepository {
     // Claim
     suspend fun claimBook(bookId: String, bookTitle: String, ownerId: String): ClaimRequest
     suspend fun getClaimRequest(claimRequestId: String): ClaimRequest?
+    suspend fun getMyClaims(userId: String, type: String? = null): List<ClaimRequest>
     suspend fun confirmBookReceived(claimRequestId: String)
     suspend fun confirmBookShared(claimRequestId: String)
 }

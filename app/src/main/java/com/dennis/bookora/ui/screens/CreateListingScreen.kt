@@ -35,26 +35,19 @@ import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.repository.auth.AuthManager
 import kotlinx.coroutines.launch
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dennis.bookora.ui.viewmodels.CreateListingViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateListingScreen(
     bookId: String? = null,
     onBack: (() -> Unit)? = null,
-    onSuccess: (() -> Unit)? = null
+    onSuccess: (() -> Unit)? = null,
+    viewModel: CreateListingViewModel = hiltViewModel()
 ) {
-    var title by remember { mutableStateOf("") }
-    var author by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Fiction") }
-    var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var isExchange by remember { mutableStateOf(true) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var existingCoverUrl by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var isPublishing by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(bookId != null) }
-    var condition by remember { mutableStateOf("Like New") }
     var categoryExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -62,39 +55,34 @@ fun CreateListingScreen(
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri -> selectedImageUri = uri }
+        onResult = { uri -> viewModel.selectedImageUri = uri }
     )
-
-    val repo = remember { ApiBookRepository() }
 
     LaunchedEffect(bookId) {
         if (bookId != null) {
-            try {
-                val existingBook = repo.getBookById(bookId)
-                if (existingBook != null) {
-                    title = existingBook.title
-                    author = existingBook.author
-                    category = existingBook.category.ifBlank { "Fiction" }
-                    description = existingBook.description
-                    location = existingBook.location
-                    isExchange = existingBook.listingType == ListingType.EXCHANGE
-                    existingCoverUrl = existingBook.coverUrl
-                    condition = when (existingBook.condition) {
-                        ListingCondition.NEW -> "New"
-                        ListingCondition.LIKE_NEW -> "Like New"
-                        ListingCondition.GOOD -> "Good"
-                        ListingCondition.FAIR -> "Fair"
-                    }
+            viewModel.loadBook(bookId)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is CreateListingViewModel.UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(event.message)
                 }
-            } catch (e: Exception) {
-                scope.launch { snackbarHostState.showSnackbar("❌ Failed to load book: ${e.message}") }
-            } finally {
-                isLoading = false
+                CreateListingViewModel.UiEvent.Success -> {
+                    if (bookId == null) {
+                        Toast.makeText(context, "Book listed successfully", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "Listing updated successfully", Toast.LENGTH_SHORT).show()
+                    }
+                    onSuccess?.invoke() ?: onBack?.invoke()
+                }
             }
         }
     }
 
-    if (isLoading) {
+    if (viewModel.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
@@ -159,9 +147,9 @@ fun CreateListingScreen(
                 }
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    if (selectedImageUri != null || existingCoverUrl.isNotEmpty()) {
+                    if (viewModel.selectedImageUri != null || viewModel.existingCoverUrl.isNotEmpty()) {
                         AsyncImage(
-                            model = selectedImageUri ?: existingCoverUrl,
+                            model = viewModel.selectedImageUri ?: viewModel.existingCoverUrl,
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxHeight()
@@ -246,8 +234,8 @@ fun CreateListingScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
+                        value = viewModel.title,
+                        onValueChange = { viewModel.title = it },
                         label = { Text("Book Title *") },
                         placeholder = { Text("e.g. The Alchemist") },
                         modifier = Modifier.fillMaxWidth(),
@@ -259,8 +247,8 @@ fun CreateListingScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
-                        value = author,
-                        onValueChange = { author = it },
+                        value = viewModel.author,
+                        onValueChange = { viewModel.author = it },
                         label = { Text("Author Name *") },
                         placeholder = { Text("e.g. Paulo Coelho") },
                         modifier = Modifier.fillMaxWidth(),
@@ -278,7 +266,7 @@ fun CreateListingScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = category,
+                            value = viewModel.category,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Category") },
@@ -297,7 +285,7 @@ fun CreateListingScreen(
                                 DropdownMenuItem(
                                     text = { Text(cat) },
                                     onClick = {
-                                        category = cat
+                                        viewModel.category = cat
                                         categoryExpanded = false
                                     }
                                 )
@@ -308,8 +296,8 @@ fun CreateListingScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
+                        value = viewModel.description,
+                        onValueChange = { viewModel.description = it },
                         label = { Text("Description") },
                         placeholder = { Text("Share details about plot, condition, and why you recommend it...") },
                         modifier = Modifier.fillMaxWidth(),
@@ -354,8 +342,8 @@ fun CreateListingScreen(
                     ) {
                         conditions.forEach { option ->
                             FilterChip(
-                                selected = condition == option,
-                                onClick = { condition = option },
+                                selected = viewModel.condition == option,
+                                onClick = { viewModel.condition = option },
                                 label = { Text(option, style = MaterialTheme.typography.labelSmall) },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = FilterChipDefaults.filterChipColors(
@@ -379,12 +367,12 @@ fun CreateListingScreen(
 
                     Row(modifier = Modifier.fillMaxWidth()) {
                         FilterChip(
-                            selected = isExchange,
-                            onClick = { isExchange = true },
+                            selected = viewModel.isExchange,
+                            onClick = { viewModel.isExchange = true },
                             label = { Text("Exchange", modifier = Modifier.padding(vertical = 4.dp)) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
-                            leadingIcon = if (isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) } } else null,
+                            leadingIcon = if (viewModel.isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) } } else null,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimary
@@ -392,12 +380,12 @@ fun CreateListingScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         FilterChip(
-                            selected = !isExchange,
-                            onClick = { isExchange = false },
+                            selected = !viewModel.isExchange,
+                            onClick = { viewModel.isExchange = false },
                             label = { Text("Giveaway", modifier = Modifier.padding(vertical = 4.dp)) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
-                            leadingIcon = if (!isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) } } else null,
+                            leadingIcon = if (!viewModel.isExchange) { { Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)) } } else null,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFF167B3D),
                                 selectedLabelColor = Color.White
@@ -408,8 +396,8 @@ fun CreateListingScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
-                        value = location,
-                        onValueChange = { location = it },
+                        value = viewModel.location,
+                        onValueChange = { viewModel.location = it },
                         label = { Text("Your Location") },
                         placeholder = { Text("e.g. Westlands, Nairobi") },
                         modifier = Modifier.fillMaxWidth(),
@@ -425,69 +413,9 @@ fun CreateListingScreen(
             // Action Button
             Button(
                 onClick = {
-                    if (title.isBlank() || author.isBlank()) {
-                        scope.launch { snackbarHostState.showSnackbar("Please enter book title and author") }
-                        return@Button
-                    }
-                    scope.launch {
-                        try {
-                            isPublishing = true
-                            val user = AuthManager.currentUser() ?: run {
-                                snackbarHostState.showSnackbar("Please sign in to publish")
-                                return@launch
-                            }
-
-                            var coverUrl = existingCoverUrl
-
-                            // Upload image if selected
-                            if (selectedImageUri != null) {
-                                snackbarHostState.showSnackbar("Uploading cover photo...")
-                                coverUrl = repo.uploadBookCoverImage(context, selectedImageUri!!)
-                            }
-
-                            val book = Book(
-                                id = bookId ?: "",
-                                title = title.trim(),
-                                author = author.trim(),
-                                category = category,
-                                description = description.trim(),
-                                location = location.trim(),
-                                condition = when (condition) {
-                                    "New" -> ListingCondition.NEW
-                                    "Like New" -> ListingCondition.LIKE_NEW
-                                    "Fair" -> ListingCondition.FAIR
-                                    else -> ListingCondition.GOOD
-                                },
-                                coverUrl = coverUrl,
-                                listingType = if (isExchange) ListingType.EXCHANGE else ListingType.GIVEAWAY,
-                                ownerId = user.id,
-                                ownerUsername = user.username,
-                                postedTimestamp = System.currentTimeMillis(),
-                                postedDate = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault()).format(java.util.Date())
-                            )
-
-                            if (bookId == null) {
-                                repo.saveBook(book)
-                                title = ""
-                                author = ""
-                                description = ""
-                                location = ""
-                                selectedImageUri = null
-                                Toast.makeText(context, "Book listed successfully", Toast.LENGTH_LONG).show()
-                                onSuccess?.invoke() ?: onBack?.invoke()
-                            } else {
-                                repo.updateBook(bookId, book)
-                                Toast.makeText(context, "Listing updated successfully", Toast.LENGTH_SHORT).show()
-                                onSuccess?.invoke() ?: onBack?.invoke()
-                            }
-                        } catch (e: Exception) {
-                            snackbarHostState.showSnackbar(e.message ?: "Publish failed")
-                        } finally {
-                            isPublishing = false
-                        }
-                    }
+                    viewModel.saveListing(context, bookId)
                 },
-                enabled = !isPublishing,
+                enabled = !viewModel.isPublishing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -498,7 +426,7 @@ fun CreateListingScreen(
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
             ) {
-                if (isPublishing) {
+                if (viewModel.isPublishing) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
                     Icon(if (bookId == null) Icons.Rounded.Publish else Icons.Rounded.Save, contentDescription = null)

@@ -46,6 +46,9 @@ import com.dennis.bookora.repository.auth.AuthSession
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dennis.bookora.ui.viewmodels.ProfileViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -53,28 +56,17 @@ fun ProfileScreen(
     onPrivacyClick: () -> Unit,
     onTermsClick: () -> Unit,
     onMyListingsClick: () -> Unit,
-    onFavoritesClick: () -> Unit = {}
+    onFavoritesClick: () -> Unit = {},
+    viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val initialCachedUser = remember { AuthManager.currentUser() }
-    var isLoading by remember { mutableStateOf(initialCachedUser == null) }
     var isSaving by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
-
-    var currentUser by remember { mutableStateOf<User?>(initialCachedUser) }
-    var firstName by rememberSaveable { mutableStateOf(initialCachedUser?.firstName ?: "") }
-    var lastName by rememberSaveable { mutableStateOf(initialCachedUser?.lastName ?: "") }
-    var username by rememberSaveable { mutableStateOf(initialCachedUser?.username ?: "") }
-    var phone by rememberSaveable { mutableStateOf(initialCachedUser?.phone ?: "") }
-    var bio by rememberSaveable { mutableStateOf(initialCachedUser?.bio?.ifEmpty { "Book lover and exchange enthusiast 📚" } ?: "") }
-    var avatarUrl by rememberSaveable { mutableStateOf(initialCachedUser?.avatarUrl ?: "") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var shareContactByEmail by remember { mutableStateOf(initialCachedUser?.shareContactByEmail ?: true) }
-    var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
-
+    
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -84,58 +76,18 @@ fun ProfileScreen(
     var usernameStatus by remember { mutableStateOf(UsernameStatus.IDLE) }
 
     LaunchedEffect(Unit) {
-        try {
-            AuthManager.ensureInitialized(context)
-            val uid = AuthManager.currentUser()?.uid
-            if (uid != null) {
-                val profile = kotlinx.coroutines.withTimeoutOrNull(3000L) {
-                    AuthManager.getUserProfile(uid)
-                } ?: (initialCachedUser ?: run {
-                    val user = AuthManager.currentUser()
-                    val names = user?.displayName?.split(" ") ?: emptyList()
-                    User(
-                        id = uid,
-                        firstName = names.getOrNull(0) ?: "Book",
-                        lastName = names.drop(1).joinToString(" ").ifBlank { "Reader" },
-                        username = user?.email?.substringBefore("@") ?: "reader",
-                        email = user?.email ?: "",
-                        phone = "",
-                        avatarUrl = user?.avatarUrl ?: "",
-                        memberSince = "",
-                        rating = 0.0,
-                        booksPosted = 0,
-                        booksShared = 0,
-                        favoritesCount = 0,
-                        bio = "Book lover and exchange enthusiast 📚"
-                    )
-                })
-                currentUser = profile
-                firstName = profile.firstName
-                lastName = profile.lastName
-                username = profile.username
-                phone = profile.phone
-                bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast 📚" }
-                avatarUrl = profile.avatarUrl
-                shareContactByEmail = profile.shareContactByEmail
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is ProfileViewModel.UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
             }
-        } catch (_: Exception) {
-        } finally {
-            isLoading = false
         }
     }
 
-    // load favorites when profile available
-    LaunchedEffect(currentUser?.id) {
-        val uid = currentUser?.id ?: return@LaunchedEffect
-        try {
-            val repo = com.dennis.bookora.repository.ApiBookRepository()
-            favorites = repo.getFavorites()
-        } catch (_: Exception) {}
-    }
-
-    LaunchedEffect(username, isEditing) {
+    LaunchedEffect(viewModel.username, isEditing) {
         if (!isEditing) return@LaunchedEffect
-        if (username.isBlank() || username == currentUser?.username) {
+        if (viewModel.username.isBlank() || viewModel.username == viewModel.currentUser?.username) {
             usernameStatus = UsernameStatus.IDLE
             return@LaunchedEffect
         }
@@ -143,46 +95,17 @@ fun ProfileScreen(
         delay(450)
         try {
             val uid = AuthManager.currentUser()?.uid
-            val available = uid != null && AuthManager.isUsernameAvailable(username, uid)
+            val available = uid != null && AuthManager.isUsernameAvailable(viewModel.username, uid)
             usernameStatus = if (available) UsernameStatus.AVAILABLE else UsernameStatus.TAKEN
         } catch (e: Exception) {
             usernameStatus = UsernameStatus.IDLE
         }
     }
 
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    fun refreshProfile() {
-        scope.launch {
-            try {
-                isRefreshing = true
-                val uid = AuthManager.currentUser()?.id ?: AuthSession.currentUserId()
-                if (uid != null) {
-                    val profile = AuthManager.getUserProfile(uid, forceRefresh = true)
-                    if (profile != null) {
-                        currentUser = profile
-                        firstName = profile.firstName
-                        lastName = profile.lastName
-                        username = profile.username
-                        phone = profile.phone
-                        bio = profile.bio.ifEmpty { "Book lover and exchange enthusiast" }
-                        avatarUrl = profile.avatarUrl
-                        shareContactByEmail = profile.shareContactByEmail
-                    }
-                    val repo = com.dennis.bookora.repository.ApiBookRepository()
-                    favorites = repo.getFavorites()
-                }
-            } catch (_: Exception) {
-            } finally {
-                isRefreshing = false
-            }
-        }
-    }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        if (isLoading) {
+        if (viewModel.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
@@ -190,8 +113,8 @@ fun ProfileScreen(
         }
 
         PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { refreshProfile() },
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = { viewModel.loadProfile(forceRefresh = true) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -209,8 +132,8 @@ fun ProfileScreen(
                 ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ProfileAvatar(
-                        initial = if (firstName.isNotEmpty()) firstName.first().uppercase() else "?",
-                        imageUrl = avatarUrl,
+                        initial = if (viewModel.firstName.isNotEmpty()) viewModel.firstName.first().uppercase() else "?",
+                        imageUrl = viewModel.avatarUrl,
                         selectedUri = selectedImageUri,
                         editable = isEditing,
                         isSaving = isSaving,
@@ -223,9 +146,9 @@ fun ProfileScreen(
                         modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        StatItem(count = (currentUser?.booksPosted ?: 0).toString(), label = "Posts")
-                        StatItem(count = (currentUser?.booksShared ?: 0).toString(), label = "Exchanges")
-                        StatItem(count = (currentUser?.favoritesCount ?: 0).toString(), label = "Favorites")
+                        StatItem(count = (viewModel.currentUser?.booksPosted ?: 0).toString(), label = "Posts")
+                        StatItem(count = (viewModel.currentUser?.booksShared ?: 0).toString(), label = "Exchanges")
+                        StatItem(count = (viewModel.currentUser?.favoritesCount ?: 0).toString(), label = "Favorites")
                     }
                 }
 
@@ -233,22 +156,22 @@ fun ProfileScreen(
 
                 if (!isEditing) {
                     Text(
-                        text = if (firstName.isNotEmpty() || lastName.isNotEmpty())
-                            "$firstName $lastName".trim() else "Add your name",
+                        text = if (viewModel.firstName.isNotEmpty() || viewModel.lastName.isNotEmpty())
+                            "${viewModel.firstName} ${viewModel.lastName}".trim() else "Add your name",
                         fontSize = 17.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "@$username",
+                        text = "@${viewModel.username}",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = bio,
+                        text = viewModel.bio,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 20.sp
@@ -282,55 +205,55 @@ fun ProfileScreen(
                         .padding(horizontal = 20.dp)
                         .padding(bottom = 8.dp)
                 ) {
-                    ProfileTextField(
-                        label = "First name",
-                        value = firstName,
-                        onValueChange = { firstName = it }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ProfileTextField(
-                        label = "Last name",
-                        value = lastName,
-                        onValueChange = { lastName = it }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                        ProfileTextField(
+                            label = "First name",
+                            value = viewModel.firstName,
+                            onValueChange = { viewModel.firstName = it }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        ProfileTextField(
+                            label = "Last name",
+                            value = viewModel.lastName,
+                            onValueChange = { viewModel.lastName = it }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    UsernameField(
-                        value = username,
-                        onValueChange = { username = it.trim() },
-                        status = usernameStatus
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                        UsernameField(
+                            value = viewModel.username,
+                            onValueChange = { viewModel.username = it.trim() },
+                            status = usernameStatus
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    ProfileTextField(
-                        label = "Phone",
-                        value = phone,
-                        onValueChange = { phone = it }
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                        ProfileTextField(
+                            label = "Phone",
+                            value = viewModel.phone,
+                            onValueChange = { viewModel.phone = it }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    ProfileTextField(
-                        label = "Bio",
-                        value = bio,
-                        onValueChange = { if (it.length <= 150) bio = it },
-                        singleLine = false,
-                        minLines = 3,
-                        maxLines = 5,
-                        supporting = "${bio.length}/150"
-                    )
+                        ProfileTextField(
+                            label = "Bio",
+                            value = viewModel.bio,
+                            onValueChange = { if (it.length <= 150) viewModel.bio = it },
+                            singleLine = false,
+                            minLines = 3,
+                            maxLines = 5,
+                            supporting = "${viewModel.bio.length}/150"
+                        )
 
                     Spacer(modifier = Modifier.height(20.dp))
 
                     Row(modifier = Modifier.fillMaxWidth()) {
                         OutlinedButton(
                             onClick = {
-                                firstName = currentUser?.firstName ?: ""
-                                lastName = currentUser?.lastName ?: ""
-                                username = currentUser?.username ?: ""
-                                phone = currentUser?.phone ?: ""
-                                bio = currentUser?.bio ?: ""
-                                avatarUrl = currentUser?.avatarUrl ?: ""
-                                shareContactByEmail = currentUser?.shareContactByEmail ?: true
+                                viewModel.firstName = viewModel.currentUser?.firstName ?: ""
+                                viewModel.lastName = viewModel.currentUser?.lastName ?: ""
+                                viewModel.username = viewModel.currentUser?.username ?: ""
+                                viewModel.phone = viewModel.currentUser?.phone ?: ""
+                                viewModel.bio = viewModel.currentUser?.bio ?: ""
+                                viewModel.avatarUrl = viewModel.currentUser?.avatarUrl ?: ""
+                                viewModel.shareContactByEmail = viewModel.currentUser?.shareContactByEmail ?: true
                                 selectedImageUri = null
                                 usernameStatus = UsernameStatus.IDLE
                                 isEditing = false
@@ -359,24 +282,24 @@ fun ProfileScreen(
                                         AuthManager.ensureInitialized(context)
                                         val uid = AuthManager.currentUser()?.uid
                                         if (uid != null) {
-                                            var finalAvatarUrl = avatarUrl
+                                            var finalAvatarUrl = viewModel.avatarUrl
                                             selectedImageUri?.let { uri ->
                                                 snackbarHostState.showSnackbar("Uploading image...")
                                                 finalAvatarUrl = AuthManager.uploadProfileImage(context, uid, uri)
                                             }
 
                                             val updates = mapOf(
-                                                "firstName" to firstName,
-                                                "lastName" to lastName,
-                                                "username" to username,
-                                                "phone" to phone,
-                                                "bio" to bio,
+                                                "firstName" to viewModel.firstName,
+                                                "lastName" to viewModel.lastName,
+                                                "username" to viewModel.username,
+                                                "phone" to viewModel.phone,
+                                                "bio" to viewModel.bio,
                                                 "avatarUrl" to finalAvatarUrl,
-                                                "shareContactByEmail" to shareContactByEmail
+                                                "shareContactByEmail" to viewModel.shareContactByEmail
                                             )
                                             AuthManager.updateUserProfile(uid, updates)
-                                            currentUser = AuthManager.getUserProfile(uid, forceRefresh = true)
-                                            avatarUrl = finalAvatarUrl
+                                            viewModel.loadProfile(forceRefresh = true)
+                                            viewModel.avatarUrl = finalAvatarUrl
                                             selectedImageUri = null
                                             isEditing = false
                                             snackbarHostState.showSnackbar("Profile updated successfully")
@@ -408,7 +331,7 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             // Favorites preview
-            if (favorites.isNotEmpty()) {
+            if (viewModel.favorites.isNotEmpty()) {
                 Text(
                     "Favorites",
                     fontSize = 16.sp,
@@ -416,16 +339,9 @@ fun ProfileScreen(
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                favorites.forEach { book ->
+                viewModel.favorites.forEach { book ->
                     com.dennis.bookora.ui.components.CleanBookCard(book, onBookClick = { onFavoritesClick() }, onFavorite = { id ->
-                        // unfavorite then reload favorites
-                        scope.launch {
-                            try {
-                                val repo = com.dennis.bookora.repository.ApiBookRepository()
-                                repo.toggleFavorite(id)
-                                favorites = repo.getFavorites()
-                            } catch (_: Exception) {}
-                        }
+                        viewModel.toggleFavorite(id)
                     })
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -468,9 +384,9 @@ fun ProfileScreen(
                     subtitle = "When someone claims your book",
                     trailing = {
                         Switch(
-                            checked = shareContactByEmail,
+                            checked = viewModel.shareContactByEmail,
                             onCheckedChange = { newValue ->
-                                shareContactByEmail = newValue
+                                viewModel.shareContactByEmail = newValue
                                 scope.launch {
                                     try {
                                         val uid = AuthManager.currentUser()?.uid

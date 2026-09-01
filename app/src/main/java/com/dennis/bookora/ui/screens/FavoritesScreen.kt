@@ -18,29 +18,25 @@ import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.ui.components.CleanBookCard
 import kotlinx.coroutines.launch
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dennis.bookora.ui.viewmodels.FavoritesViewModel
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
     onBack: () -> Unit,
-    onBookClick: (String) -> Unit
+    onBookClick: (String) -> Unit,
+    viewModel: FavoritesViewModel = hiltViewModel()
 ) {
-    var favorites by remember { mutableStateOf<List<Book>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    val repo = remember { ApiBookRepository() }
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        isLoading = true
-        try {
-            favorites = repo.getFavorites()
-            if (favorites.isNotEmpty()) {
-                // Silent load success
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is FavoritesViewModel.UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
             }
-        } catch (e: Exception) {
-            scope.launch { snackbarHostState.showSnackbar("Failed to load favorites: ${e.message}") }
-        } finally {
-            isLoading = false
         }
     }
 
@@ -62,9 +58,9 @@ fun FavoritesScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (isLoading) {
+            if (viewModel.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (favorites.isEmpty()) {
+            } else if (viewModel.favorites.isEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -101,7 +97,7 @@ fun FavoritesScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(favorites) { book ->
+                    items(viewModel.favorites) { book ->
                         CleanBookCard(book, onBookClick)
                     }
                 }

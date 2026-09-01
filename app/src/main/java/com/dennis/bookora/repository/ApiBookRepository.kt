@@ -22,17 +22,27 @@ import com.dennis.bookora.models.Notification
 import com.dennis.bookora.models.User
 import com.dennis.bookora.repository.auth.AuthSession
 import com.dennis.bookora.repository.auth.AuthManager
+import com.dennis.bookora.data.local.BookoraDatabase
+import com.dennis.bookora.BookoraApplication
+import com.dennis.bookora.data.local.dao.BookDao
+import com.dennis.bookora.data.local.dao.CategoryDao
+import com.dennis.bookora.data.local.entities.toBook
+import com.dennis.bookora.data.local.entities.toCategory
+import com.dennis.bookora.data.local.entities.toEntity
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import javax.inject.Inject
 
-class ApiBookRepository @Inject constructor() : BookRepository {
+class ApiBookRepository @Inject constructor(
+    private val bookDao: BookDao,
+    private val categoryDao: CategoryDao
+) : BookRepository {
     private fun currentUid(): String =
         AuthManager.currentUser()?.uid ?: AuthSession.currentUserId() ?: throw IllegalStateException("Not logged in")
 
     // Upload book cover image
-    suspend fun uploadBookCoverImage(context: Context, imageUri: Uri): String {
+    override suspend fun uploadBookCoverImage(context: Context, imageUri: Uri): String {
         val uid = AuthSession.currentUserId() ?: AuthManager.currentUser()?.id ?: "guest_user"
         return try {
             val inputStream = context.contentResolver.openInputStream(imageUri)
@@ -80,18 +90,26 @@ class ApiBookRepository @Inject constructor() : BookRepository {
 
     override suspend fun getCategories(): List<Category> {
         return try {
-            RetrofitClient.apiService.getCategories().body()?.data.orEmpty().map { it.toCategory() }
+            val categories = RetrofitClient.apiService.getCategories().body()?.data.orEmpty().map { it.toCategory() }
+            if (categories.isNotEmpty()) {
+                categoryDao.insertCategories(categories.map { it.toEntity() })
+            }
+            categories
         } catch (_: Exception) {
-            emptyList()
+            categoryDao.getAllCategories().map { it.toCategory() }
         }
     }
 
     override suspend fun getBooks(): List<Book> {
         return try {
             val resp = RetrofitClient.apiService.getBooks()
-            resp.body()?.data.orEmpty().map { it.toBook() }
+            val books = resp.body()?.data.orEmpty().map { it.toBook() }
+            if (books.isNotEmpty()) {
+                bookDao.insertBooks(books.map { it.toEntity() })
+            }
+            books
         } catch (_: Exception) {
-            emptyList()
+            bookDao.getAllBooks().map { it.toBook() }
         }
     }
 
@@ -101,9 +119,13 @@ class ApiBookRepository @Inject constructor() : BookRepository {
 
     override suspend fun getBookById(bookId: String): Book? {
         return try {
-            RetrofitClient.apiService.getBookById(id = bookId).body()?.data?.toBook()
+            val book = RetrofitClient.apiService.getBookById(id = bookId).body()?.data?.toBook()
+            if (book != null) {
+                bookDao.insertBook(book.toEntity())
+            }
+            book ?: bookDao.getBookById(bookId)?.toBook()
         } catch (_: Exception) {
-            null
+            bookDao.getBookById(bookId)?.toBook()
         }
     }
 
@@ -178,6 +200,7 @@ class ApiBookRepository @Inject constructor() : BookRepository {
     }
 
     override suspend fun deleteBook(bookId: String) {
+        try { bookDao.deleteBook(bookId) } catch (_: Exception) {}
         RetrofitClient.apiService.deleteBook(id = bookId, userId = currentUid())
     }
 
@@ -304,6 +327,14 @@ class ApiBookRepository @Inject constructor() : BookRepository {
             RetrofitClient.apiService.getClaim(claimId = claimRequestId).body()?.data?.toClaimRequest()
         } catch (_: Exception) {
             null
+        }
+    }
+
+    override suspend fun getMyClaims(userId: String, type: String?): List<ClaimRequest> {
+        return try {
+            RetrofitClient.apiService.getMyClaims(userId = userId, type = type).body()?.data.orEmpty().map { it.toClaimRequest() }
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 

@@ -69,6 +69,17 @@ class BookDetailViewModel @Inject constructor(
                             } catch (_: Exception) {}
                         }
                     }
+
+                    // Fetch existing claim requests if not owner
+                    if (currentUid != null && currentUid != b.ownerId) {
+                        launch {
+                            try {
+                                val claims = repo.getMyClaims(currentUid, "claimer")
+                                val existingClaim = claims.find { it.bookId == bookId }
+                                claimState.value = existingClaim
+                            } catch (_: Exception) {}
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 error.value = e.message ?: "Failed to load book details."
