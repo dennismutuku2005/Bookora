@@ -1,6 +1,10 @@
 package com.dennis.bookora.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -35,8 +39,11 @@ import com.dennis.bookora.repository.ApiBookRepository
 import com.dennis.bookora.repository.auth.AuthManager
 import kotlinx.coroutines.launch
 
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dennis.bookora.ui.viewmodels.CreateListingViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +57,7 @@ fun CreateListingScreen(
     val scope = rememberCoroutineScope()
     var categoryExpanded by remember { mutableStateOf(false) }
     var showImageSourceDialog by remember { mutableStateOf(false) }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     val categoriesList = listOf("Fiction", "Non-Fiction", "Self-Help", "Technology", "Science", "History", "Biography", "Children", "Romance", "Other")
@@ -62,11 +70,40 @@ fun CreateListingScreen(
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
         onResult = { success ->
-            if (success && viewModel.selectedImageUri != null) {
-                // Image saved to the URI
+            if (success && pendingCameraUri != null) {
+                viewModel.selectedImageUri = pendingCameraUri
+            } else {
+                Toast.makeText(context, "Camera capture was cancelled", Toast.LENGTH_SHORT).show()
+                viewModel.selectedImageUri = null
+            }
+            pendingCameraUri = null
+        }
+    )
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                val tempUri = createImageUri(context)
+                pendingCameraUri = tempUri
+                viewModel.selectedImageUri = tempUri
+                cameraLauncher.launch(tempUri)
+            } else {
+                Toast.makeText(context, "Camera permission is required to take a photo", Toast.LENGTH_SHORT).show()
             }
         }
     )
+
+    val openCamera = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            val tempUri = createImageUri(context)
+            pendingCameraUri = tempUri
+            viewModel.selectedImageUri = tempUri
+            cameraLauncher.launch(tempUri)
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     LaunchedEffect(bookId) {
         if (bookId != null) {
@@ -474,12 +511,7 @@ fun CreateListingScreen(
                     onClick = {
                         showImageSourceDialog = false
                         try {
-                            val imageUri = android.content.ContentUris.withAppendedId(
-                                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                                System.currentTimeMillis()
-                            )
-                            viewModel.selectedImageUri = imageUri
-                            cameraLauncher.launch(imageUri)
+                            openCamera()
                         } catch (e: Exception) {
                             Toast.makeText(context, "Camera not available", Toast.LENGTH_SHORT).show()
                         }
@@ -492,4 +524,23 @@ fun CreateListingScreen(
             }
         )
     }
+}
+
+private fun createImageUri(context: Context): Uri {
+    val imageDir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "bookora")
+    if (!imageDir.exists()) {
+        imageDir.mkdirs()
+    }
+
+    val imageFile = File.createTempFile(
+        "book_cover_",
+        ".jpg",
+        imageDir
+    )
+
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        imageFile
+    )
 }
