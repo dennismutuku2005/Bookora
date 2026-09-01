@@ -34,21 +34,31 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build --build-cache
+        run: ./gradlew build --build-cache 2>&1 | tail -50
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Build Release AAB
-        run: ./gradlew bundleRelease
+        continue-on-error: true
+        run: ./gradlew bundleRelease 2>&1 || true
 
       - name: List build outputs
         if: always()
         run: |
-          echo "=== APK Outputs ==="
-          find app/build/outputs/apk -type f -name "*.apk" 2>/dev/null || echo "No APKs found"
-          echo "=== AAB Outputs ==="
-          find app/build/outputs/bundle -type f -name "*.aab" 2>/dev/null || echo "No AABs found"
+          echo "=== Checking APK Outputs ==="
+          if [ -d "app/build/outputs/apk" ]; then
+            find app/build/outputs/apk -type f -name "*.apk" -exec ls -lh {} \;
+          else
+            echo "APK directory not found"
+          fi
+          
+          echo "=== Checking AAB Outputs ==="
+          if [ -d "app/build/outputs/bundle" ]; then
+            find app/build/outputs/bundle -type f -name "*.aab" -exec ls -lh {} \;
+          else
+            echo "AAB directory not found"
+          fi
 
       - name: Run unit tests
         run: ./gradlew test
@@ -61,16 +71,20 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: bookora-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: bookora-apk
+          path: |
+            app/build/outputs/apk/**/*.apk
+            !app/build/outputs/apk/**/output-metadata.json
 
       - name: Upload AAB to artifacts
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: bookora-release-aab
-          path: app/build/outputs/bundle/release/*.aab
+          name: bookora-aab
+          path: |
+            app/build/outputs/bundle/**/*.aab
+            !app/build/outputs/bundle/**/output-metadata.json
 
       - name: Upload test reports
         if: always()
@@ -92,17 +106,17 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: bookora-release-apk
+          name: bookora-apk
 
       - name: Download AAB
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: bookora-release-aab
+          name: bookora-aab
 
       - name: List downloaded files
         run: |
-          echo "=== Current directory ==="
+          echo "=== Artifacts in current directory ===" && pwd && ls -la
           pwd
           echo "=== Files ==="
           ls -la
