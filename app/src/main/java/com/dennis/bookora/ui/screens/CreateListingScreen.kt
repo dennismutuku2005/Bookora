@@ -49,6 +49,7 @@ fun CreateListingScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var categoryExpanded by remember { mutableStateOf(false) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     val categoriesList = listOf("Fiction", "Non-Fiction", "Self-Help", "Technology", "Science", "History", "Biography", "Children", "Romance", "Other")
@@ -56,6 +57,15 @@ fun CreateListingScreen(
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> viewModel.selectedImageUri = uri }
+    )
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success ->
+            if (success && viewModel.selectedImageUri != null) {
+                // Image saved to the URI
+            }
+        }
     )
 
     LaunchedEffect(bookId) {
@@ -140,11 +150,7 @@ fun CreateListingScreen(
                     width = 1.5.dp,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                 ),
-                onClick = {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                }
+                onClick = { showImageSourceDialog = true }
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     if (viewModel.selectedImageUri != null || viewModel.existingCoverUrl.isNotEmpty()) {
@@ -441,5 +447,49 @@ fun CreateListingScreen(
 
             Spacer(modifier = Modifier.height(100.dp))
         }
+    }
+
+    // Image Source Selection Dialog
+    if (showImageSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text("Select Image Source") },
+            text = { Text("Choose how you want to add the book cover image") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showImageSourceDialog = false
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                ) {
+                    Icon(Icons.Rounded.ImageSearch, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Gallery")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        showImageSourceDialog = false
+                        try {
+                            val imageUri = android.content.ContentUris.withAppendedId(
+                                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                System.currentTimeMillis()
+                            )
+                            viewModel.selectedImageUri = imageUri
+                            cameraLauncher.launch(imageUri)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Camera not available", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Camera")
+                }
+            }
+        )
     }
 }
